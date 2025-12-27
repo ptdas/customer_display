@@ -1,0 +1,22 @@
+{
+ "content": null,
+ "creation": "2025-04-07 14:44:41.021754",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 0,
+ "modified": "2025-06-08 10:57:14.915819",
+ "modified_by": "Administrator",
+ "module": "Customer Display",
+ "name": "customer-display",
+ "owner": "Administrator",
+ "page_name": "customer-display",
+ "roles": [
+  {
+   "role": "All"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 0
+}

@@ -1,0 +1,76 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:pos_profile",
+ "creation": "2025-06-18 15:00:39.119390",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "pos_profile",
+  "current_customer",
+  "current_points",
+  "paid_amount",
+  "change_amount",
+  "current_items"
+ ],
+ "fields": [
+  {
+   "fieldname": "pos_profile",
+   "fieldtype": "Link",
+   "label": "Pos Profile",
+   "options": "POS Profile",
+   "unique": 1
+  },
+  {
+   "fieldname": "current_customer",
+   "fieldtype": "Data",
+   "label": "Current Customer"
+  },
+  {
+   "fieldname": "paid_amount",
+   "fieldtype": "Currency",
+   "label": "Paid Amount"
+  },
+  {
+   "fieldname": "change_amount",
+   "fieldtype": "Currency",
+   "label": "Change Amount"
+  },
+  {
+   "fieldname": "current_items",
+   "fieldtype": "Table",
+   "label": "Current Items",
+   "options": "Customer Display Item"
+  },
+  {
+   "fieldname": "current_points",
+   "fieldtype": "Int",
+   "label": "Current Points"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-06-20 15:28:08.675913",
+ "modified_by": "Administrator",
+ "module": "Customer Display",
+ "name": "Customer Display Settings",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

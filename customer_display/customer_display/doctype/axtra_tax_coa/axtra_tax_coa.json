@@ -1,0 +1,41 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-06-23 20:25:02.668906",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "tax_coa",
+  "jenis_tax"
+ ],
+ "fields": [
+  {
+   "fieldname": "tax_coa",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Tax COA",
+   "link_filters": "[[\"Account\",\"company\",\"=\",\"ABKG\"]]",
+   "options": "Account"
+  },
+  {
+   "fieldname": "jenis_tax",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Jenis Tax",
+   "options": "21\n22\n23\n25\n26\n4(2)\nPPn-K\nPPn-M"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-06-23 20:28:05.232981",
+ "modified_by": "Administrator",
+ "module": "Customer Display",
+ "name": "AXTRA Tax COA",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

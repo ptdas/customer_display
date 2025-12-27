@@ -1,0 +1,151 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-06-23 13:39:37.675575",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "pos_tab",
+  "account_si_pos_return",
+  "sales_return_account",
+  "sales_return_point_account",
+  "account_si_pos_each_item_discount",
+  "account_si_pos_invoice_discount",
+  "supplier_tab",
+  "default_target_pkp_company",
+  "default_target_pitza_company",
+  "column_break_piox",
+  "default_target_pkp_company_bjm",
+  "default_target_pitza_company_bjm",
+  "axtra_tab",
+  "axtra_tax_coa",
+  "lcv_tab",
+  "item_forwarder"
+ ],
+ "fields": [
+  {
+   "fieldname": "account_si_pos_return",
+   "fieldtype": "Link",
+   "label": "Acc. SI-POS Return Using Point",
+   "link_filters": "[[\"Account\",\"company\",\"=\",\"ABKG\"],[\"Account\",\"is_group\",\"=\",0]]",
+   "options": "Account"
+  },
+  {
+   "fieldname": "pos_tab",
+   "fieldtype": "Tab Break",
+   "label": "POS"
+  },
+  {
+   "fieldname": "supplier_tab",
+   "fieldtype": "Tab Break",
+   "label": "Supplier"
+  },
+  {
+   "fieldname": "default_target_pkp_company",
+   "fieldtype": "Link",
+   "label": "Default Target PKP Company BJB",
+   "link_filters": "[[\"Company\",\"parent_company\",\"=\",\"BJB\"]]",
+   "options": "Company"
+  },
+  {
+   "fieldname": "default_target_pitza_company",
+   "fieldtype": "Link",
+   "label": "Default Target Pitza Company BJB",
+   "link_filters": "[[\"Company\",\"parent_company\",\"=\",\"BJB\"]]",
+   "options": "Company"
+  },
+  {
+   "fieldname": "sales_return_account",
+   "fieldtype": "Link",
+   "label": "Sales Return Account",
+   "link_filters": "[[\"Account\",\"company\",\"=\",\"ABKG\"]]",
+   "options": "Account"
+  },
+  {
+   "fieldname": "sales_return_point_account",
+   "fieldtype": "Link",
+   "label": "Sales Return Point Account",
+   "link_filters": "[[\"Account\",\"company\",\"=\",\"ABKG\"]]",
+   "options": "Account"
+  },
+  {
+   "fieldname": "axtra_tab",
+   "fieldtype": "Tab Break",
+   "label": "AXTRA"
+  },
+  {
+   "fieldname": "axtra_tax_coa",
+   "fieldtype": "Table",
+   "label": "AXTRA Tax COA",
+   "options": "AXTRA Tax COA"
+  },
+  {
+   "fieldname": "account_si_pos_each_item_discount",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Acc. SI-POS Each Item Discount",
+   "link_filters": "[[\"Account\",\"company\",\"=\",\"ABKG\"],[\"Account\",\"is_group\",\"=\",0]]",
+   "options": "Account"
+  },
+  {
+   "fieldname": "account_si_pos_invoice_discount",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "Acc. SI-POS Invoice Discount",
+   "link_filters": "[[\"Account\",\"company\",\"=\",\"ABKG\"],[\"Account\",\"is_group\",\"=\",0]]",
+   "options": "Account"
+  },
+  {
+   "fieldname": "lcv_tab",
+   "fieldtype": "Tab Break",
+   "label": "LCV"
+  },
+  {
+   "fieldname": "item_forwarder",
+   "fieldtype": "Link",
+   "label": "Item Forwarder",
+   "options": "Item"
+  },
+  {
+   "fieldname": "column_break_piox",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_target_pkp_company_bjm",
+   "fieldtype": "Link",
+   "label": "Default Target PKP Company BJM",
+   "link_filters": "[[\"Company\",\"parent_company\",\"=\",\"BJM\"]]",
+   "options": "Company"
+  },
+  {
+   "fieldname": "default_target_pitza_company_bjm",
+   "fieldtype": "Link",
+   "label": "Default Target Pitza Company BJM",
+   "link_filters": "[[\"Company\",\"parent_company\",\"=\",\"BJM\"]]",
+   "options": "Company"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2025-12-27 14:49:09.004177",
+ "modified_by": "Administrator",
+ "module": "Customer Display",
+ "name": "AXTRA Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

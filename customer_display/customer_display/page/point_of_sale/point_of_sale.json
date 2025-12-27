@@ -1,0 +1,36 @@
+{
+ "content": null,
+ "creation": "2020-01-28 22:05:44.819140",
+ "docstatus": 0,
+ "doctype": "Page",
+ "idx": 9,
+ "modified": "2025-06-11 22:29:36.315959",
+ "modified_by": "Administrator",
+ "module": "Customer Display",
+ "name": "point-of-sale",
+ "owner": "Administrator",
+ "page_name": "point-of-sale",
+ "restrict_to_domain": "",
+ "roles": [
+  {
+   "role": "Accounts User"
+  },
+  {
+   "role": "Accounts Manager"
+  },
+  {
+   "role": "Sales User"
+  },
+  {
+   "role": "Sales Manager"
+  },
+  {
+   "role": "Sales Master Manager"
+  }
+ ],
+ "script": null,
+ "standard": "Yes",
+ "style": null,
+ "system_page": 1,
+ "title": "Point Of Sale"
+}

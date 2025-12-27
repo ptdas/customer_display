@@ -13,6 +13,30 @@ app_license = "mit"
 # app_include_css = "/assets/customer_display/css/customer_display.css"
 # app_include_js = "/assets/customer_display/js/customer_display.js"
 
+boot_session = "customer_display.custom_standard.user_custom.make_perm_level_session"
+
+app_include_js = [
+	'pos_patch.bundle.js',
+	'pos_customer_display.bundle.js',
+    'jquery-mask/jquery.mask.min.js'
+]
+
+web_include_context = {
+	"customer_display": "customer_display.api.get_customer_display"
+}
+
+doctype_js = {
+	"Customer" : "public/js/custom_customer.js",
+	"Purchase Invoice" : "public/js/custom_purchase_invoice.js",
+	"Purchase Order" : "public/js/custom_purchase_order.js",
+	"Purchase Receipt" : "public/js/custom_purchase_receipt.js",
+	"Sales Invoice" : "public/js/custom_sales_invoice.js",
+	"Supplier": "public/js/custom_supplier.js",
+	"Item": "public/js/custom_item.js",
+	"POS Closing Entry": "public/js/custom_pos_closing_entry.js",
+    "Payment Entry": "public/js/custom_payment_entry.js"
+}
+
 # include js, css files in header of web template
 # web_include_css = "/assets/customer_display/css/customer_display.css"
 # web_include_js = "/assets/customer_display/js/customer_display.js"
@@ -63,6 +87,11 @@ app_license = "mit"
 # 	"methods": "customer_display.utils.jinja_methods",
 # 	"filters": "customer_display.utils.jinja_filters"
 # }
+
+jinja = {
+	'filters': "customer_display.custom_standard.jinja_filters.get_tutup_kasir"
+}
+
 
 # Installation
 # ------------
@@ -115,21 +144,76 @@ app_license = "mit"
 # Override standard doctype classes
 
 # override_doctype_class = {
-# 	"ToDo": "custom_app.overrides.CustomToDo"
+# 	"Sales Invoice": "customer_display.custom_standard.sales_invoice_custom.CustomSalesInvoice"
 # }
 
 # Document Events
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+	"Account": {
+		"after_insert": "customer_display.custom_standard.account_custom.clone_account_to_children"
+	},
 
+	# "Item": {
+	#     "validate": "customer_display.custom_standard.item_custom.on_vendor_change_transfer_stock"
+	# },
+
+	"Delivery Note": {
+		"validate": "customer_display.custom_standard.delivery_note_custom.set_expense"
+	},
+
+	"Item":{
+		"validate": "customer_display.custom_standard.qr_generator.generate_barcode_image"
+	},
+
+	"Payment Entry": {
+		"validate": "customer_display.custom_standard.payment_entry_custom.validate_ri_payment",
+		"on_submit": "customer_display.custom_standard.loyalty_point_custom.payment_entry_on_submit"
+	},
+	"POS Invoice": {
+		"before_insert": "customer_display.custom_standard.pos_invoice_custom.create_si_pos_id_no",
+		"on_submit": "customer_display.customer_display.page.point_of_sale.custom_pos_method.split_pos_invoice",
+	},
+	"POS Profile": {
+		"after_insert": "customer_display.custom_standard.pos_profile_custom.create_customer_display_settings"
+	},
+
+	"POS Opening Entry":{
+		"validate": "customer_display.custom_standard.pos_opening_entry_custom.check_double"
+	},
+	"Purchase Order": {
+		"on_submit": "customer_display.custom_standard.purchase_order_custom.auto_create_purchase_invoice",
+		"on_update": "customer_display.custom_standard.purchase_order_custom.mark_need_review_if_vendor_mismatch"
+	},
+	"Purchase Receipt": {
+		"validate": ["customer_display.custom_standard.purchase_receipt_custom.check_abbr"],
+		"on_update": "customer_display.custom_standard.purchase_receipt_custom.check_po_qty",
+        "on_submit": "customer_display.custom_standard.purchase_invoice_custom.update_item_last_vendor"
+	},
+	"Purchase Invoice": {
+		"autoname": "customer_display.custom_standard.autoname_custom.autoname_purchase",
+        "validate": "customer_display.custom_standard.purchase_invoice_custom.recalc_lcv",
+		"on_submit": ["customer_display.custom_standard.purchase_invoice_custom.create_lcv_on_submit","customer_display.custom_standard.purchase_invoice_custom.update_item_last_vendor"]
+	},
+	"Sales Invoice": {
+		"autoname": "customer_display.custom_standard.autoname_custom.autoname_purchase",
+		"after_insert": "customer_display.custom_standard.sales_invoice_custom.approval_return"
+	},
+	"User":{
+        "on_update": ["customer_display.custom_standard.user_custom.create_user_permission_on_save","customer_display.custom_standard.user_custom.delete_user_permission_on_delete"],
+	},
+	"Warehouse": {
+		"after_insert": "customer_display.custom_standard.warehouse_custom.clone_warehouse_to_children"
+	}
+	
+}
+
+
+override_doctype_class = {
+    "Sales Invoice": "customer_display.custom_standard.sales_invoice_override.CustomSalesInvoice",
+}
 # Scheduled Tasks
 # ---------------
 

@@ -173,6 +173,7 @@ doc_events = {
 		"on_submit": "customer_display.custom_standard.loyalty_point_custom.payment_entry_on_submit"
 	},
 	"POS Invoice": {
+		"autoname": "customer_display.custom_standard.pos_invoice_custom.custom_autoname",
 		"before_insert": "customer_display.custom_standard.pos_invoice_custom.create_si_pos_id_no",
 		"on_submit": "customer_display.customer_display.page.point_of_sale.custom_pos_method.split_pos_invoice",
 	},

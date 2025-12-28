@@ -37,6 +37,12 @@ def create_stock_entry_for_zero_stock(item, warehouse, company):
 	stock_qty = frappe.db.get_value("Bin", {"item_code": item.item_code, "warehouse": warehouse}, "actual_qty") or 0
 	if stock_qty > 0:
 		return
+	
+	valuation_rate = frappe.db.get_value(
+		"Bin",
+		{"item_code": item.item_code, "warehouse": warehouse},
+		"valuation_rate"
+	) or 0
 
 	se = frappe.new_doc("Stock Entry")
 	se.stock_entry_type = "Material Receipt"
@@ -54,9 +60,13 @@ def create_stock_entry_for_zero_stock(item, warehouse, company):
 		"uom": item.uom,
 		"stock_uom": item.uom,
 		"conversion_factor": item.conversion_factor or 1,
+		"valuation_rate": valuation_rate,
+		"allow_zero_valuation_rate": 1,
 	})
+
 	se.insert(ignore_permissions=True)
 	se.submit()
+
 
 @frappe.whitelist()
 def debug_split():

@@ -15,3 +15,6 @@ def create_tutup_kasir():
 	closing_entry = make_closing_entry_from_opening(frappe.get_doc("POS Opening Entry","POS-OPE-2025-00009"))
 	closing_entry.save()
 	
+def start_import():
+	doc = frappe.get_doc("Data Import","Item Price Import on 2025-12-28 20:39:43.769031")
+	doc.start_import()

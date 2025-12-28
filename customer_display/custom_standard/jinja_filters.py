@@ -1,7 +1,7 @@
 import frappe
 from datetime import timedelta
 def debug():
-	get_tutup_kasir("POS-CLO-2025-00005")
+	get_tutup_kasir("POS-CLO-2025-00034")
 
 def get_tutup_kasir(name):
 	doc = frappe.get_doc("POS Closing Entry", name)
@@ -12,7 +12,7 @@ def get_tutup_kasir(name):
 		kas_awal = kas_awal + row.opening_amount
 		if row.mode_of_payment == "Cash":
 			jual_cash = jual_cash + (row.closing_amount - row.opening_amount)
-		elif "Debit" in row.mode_of_payment or "Credit" in row.mode_of_payment:
+		elif "QR" in row.mode_of_payment or "Debit" in row.mode_of_payment or "Credit" in row.mode_of_payment:
 			jual_card = jual_card + (row.closing_amount - row.opening_amount)
 		elif "Online Partai" in row.mode_of_payment :
 			online_partai = online_partai + (row.closing_amount - row.opening_amount)
@@ -100,5 +100,5 @@ def get_tutup_kasir(name):
 	total = kas_akhir - pinjaman
 
 	total_tutup = total - uang_charge_kredit	
-
+	print(str([kas_awal, online_partai, online, total_online, jual_cash, jual_card, voucher, jumlah_jual, retur_cash, retur_card, discount_item, discount_nota, total_jual, kas_akhir, point_jual, point_retur, total_point, member_free, member_non_free, biaya_member, total_kas_akhir, pinjaman, total, uang_charge_kredit, total_tutup]))
 	return [kas_awal, online_partai, online, total_online, jual_cash, jual_card, voucher, jumlah_jual, retur_cash, retur_card, discount_item, discount_nota, total_jual, kas_akhir, point_jual, point_retur, total_point, member_free, member_non_free, biaya_member, total_kas_akhir, pinjaman, total, uang_charge_kredit, total_tutup]

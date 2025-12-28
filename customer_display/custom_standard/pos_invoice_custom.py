@@ -3,6 +3,25 @@ import random
 import string
 from frappe.model.document import Document
 from datetime import datetime
+from frappe.model.naming import make_autoname
+
+@frappe.whitelist()
+def custom_autoname(doc,method):
+	pos_profile = frappe.get_doc("POS Profile", doc.pos_profile)
+	cabang = pos_profile.custom_cabang or "X"
+	
+	posting_date = frappe.utils.getdate(doc.posting_date)
+	year = str(posting_date.year)[-2:]
+	
+	month_letter = chr(64 + posting_date.month)
+	day = str(posting_date.day).zfill(2)
+
+	prefix = f"{cabang}{year}{month_letter}{day}"
+
+	if doc.is_return:
+		doc.name = make_autoname(f"R{prefix}.####", doc.doctype)
+	else:
+		doc.name = make_autoname(f"{prefix}.####", doc.doctype)
 
 @frappe.whitelist()
 def create_si_pos_id_no(self, method):

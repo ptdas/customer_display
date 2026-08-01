@@ -1,0 +1,388 @@
+{%
+var kas_awal = 0;
+var kas_akhir = 0;
+var jual_kas = 0;
+var jual_kartu = 0;
+var retur_kas = 0;
+var retur_kartu=0;
+var voucher=0;
+var byk=0;
+
+for(var i=0, l=data.length-1; i<l; i++) {
+kas_awal = kas_awal+ flt(data[i]['kas_awal']);
+jual_kas = jual_kas+ flt(data[i]['jual_cash']);
+jual_kartu=jual_kartu+ flt(data[i]['jual_kartu']);
+voucher= voucher+ flt(data[i]['vch']);
+retur_kas= retur_kas+ flt(data[i]['retur_cash']);
+retur_kartu= retur_kartu+ flt(data[i]['retur_kartu']);
+kas_akhir= kas_akhir+ flt(data[i]['kas_akhir']);
+byk=byk+flt(data[i]['byk']);
+
+}
+%}
+<style>
+  .tabel_no_garis{
+   border-top:none!important;
+   border-left:none!important;
+   border-right:none!important;
+   border-bottom:none!important;
+  }
+  .tabel_no_garis_up{
+   border-top:1px solid black!important;
+   border-left:none!important;
+   border-right:none!important;
+   border-bottom:none!important;
+  }
+  .tabel_garis_kiri_kanan{
+   border-top:none!important;
+   border-left:1px solid black!important;
+   border-right:1px solid black!important;
+   border-bottom:none!important;
+  }
+  .tabel_garis_tengah{
+   border-top:1px solid black!important;
+   border-left:1px solid black!important;
+   border-right:1px solid black!important;
+   border-bottom:1px solid black!important;
+   text-align: center;
+   padding: 0!important;
+  }
+  .tabel_garis_kiri{
+   border-top:1px solid black!important;
+   border-left:1px solid black!important;
+   border-right:1px solid black!important;
+   border-bottom:1px solid black!important;
+   text-align: left;
+   padding: 0!important;
+  }
+  .print-format td, .print-format th {
+    padding: 2px !important;
+  }
+
+@media screen {
+    .print-format {
+      width: 8cm;
+      padding: 0.1in;
+      min-height: 8in;
+    }
+  }
+</style>
+
+<div class="page-break" style="font-size:90%">  
+  <table class="table table-borderless" style="padding:0px;font-size:100%;margin: 0px!important;margin-top: 10px!important;">
+    <colgroup>
+      <col style="width:48%">
+      <col style="width:2%">
+      <col style="width:50%">
+    </colgroup>
+    <tbody> 
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Kasir
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          {%= frappe.session.user_fullname %}
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Tanggal
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          {%=filters.date %}
+        </td>
+      </tr>
+      
+    </tbody>
+  </table>
+
+  <table class="table table-borderless" style="padding:0px;font-size:100%;margin: 0px!important;margin-top: 10px!important;">
+    <colgroup>
+      <col style="width:48%">
+      <col style="width:2%">
+      <col style="width:50%">
+    </colgroup>
+    <tbody> 
+	<tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Online Partai
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important; text-align:right;">
+	0
+        </td>
+      </tr>
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Online
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important; text-align:right;">
+	0
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Total Online
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important; text-align:right;">
+	0
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Kas Awal
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important;">
+          {%= frappe.format(kas_awal, { fieldtype: "Currency" }) %}
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Jual Cash
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important;">
+          {%= frappe.format(jual_kas, { fieldtype: "Currency" }) %}
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Jual Card
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important;">
+          {%= frappe.format(jual_kartu, { fieldtype: "Currency" }) %}
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Voucher
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important;">
+	{%= frappe.format(voucher, { fieldtype: "Currency" }) %}
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Jumlah Jual
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important;">
+	{%= frappe.format(jual_kas + jual_kartu, { fieldtype: "Currency" }) %}
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Retur Cash
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important;">
+          {%= frappe.format(retur_kas, { fieldtype: "Currency" }) %}
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Retur Card
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important;">
+          {%= frappe.format(retur_kartu, { fieldtype: "Currency" }) %}
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Discount Item
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important; text-align:right;">
+	0
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Discount Nota
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important; text-align:right;">
+	0
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Total Jual
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+	{%= frappe.format(byk, { fieldtype: "Float" }) %}
+        </td>
+      </tr>
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Kas Akhir
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+	{%= frappe.format(kas_akhir, { fieldtype: "Currency" }) %}
+        </td>
+      </tr>
+      
+    </tbody>
+  </table>
+
+  
+
+  <table class="table table-borderless" style="padding:0px;font-size:100%;margin: 0px!important;margin-top: 10px!important;">
+    <colgroup>
+      <col style="width:48%">
+      <col style="width:2%">
+      <col style="width:50%">
+    </colgroup>
+    <tbody> 
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Member Free
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important; text-align:right;">
+	0
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Member Non Free
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important; text-align:right;">
+	0
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Biaya Member
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important; text-align:right;">
+	0
+        </td>
+      </tr>    
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Total Kas Akhir
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+	{%= frappe.format(kas_akhir, { fieldtype: "Currency" }) %}
+        </td>
+      </tr>    
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Pinjaman
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important; text-align:right;">
+	0
+        </td>
+      </tr>   
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Total
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+	{%= frappe.format(kas_akhir, { fieldtype: "Currency" }) %}
+        </td>
+      </tr>   
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Uang Charge Kredit
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important; text-align:right;">
+	0
+        </td>
+      </tr> 
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Total Tutup
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+	{%= frappe.format(kas_akhir, { fieldtype: "Currency" }) %}
+        </td>
+      </tr> 
+
+    </tbody>
+  </table>
+  </div>

@@ -50,7 +50,7 @@ frappe.pages['customer-display'].on_page_load = function(wrapper) {
 
 			<!-- Right Side: Cart -->
 			<div style="
-				width: 30%;
+				width: 40%;
 				padding: 2rem;
 				display: flex;
 				justify-content: center;
@@ -170,24 +170,100 @@ frappe.pages['customer-display'].on_page_load = function(wrapper) {
 			return;
 		}
 
+		// items.forEach(item => {
+		// 	total_qty += item.qty;
+		// 	total_price += item.qty * item.rate;
+
+		// 	const div = document.createElement("div");
+		// 	div.style = "display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid #eee;";
+		// 	div.innerHTML = `
+		// 		<div style="font-weight: 500;">
+		// 			${item.item_name}
+		// 			<div style="font-size: 0.85rem; color: #777;">${item.item_code}</div>
+		// 		</div>
+		// 		<div style="text-align: right;">
+		// 			<div>${item.qty} × Rp ${item.rate.toLocaleString("id-ID")}</div>
+		// 			<div style="font-weight: bold;">Rp ${(item.qty * item.rate).toLocaleString("id-ID")}</div>
+		// 		</div>
+		// 	`;
+		// 	container.appendChild(div);
+		// });
+
 		items.forEach(item => {
+			console.log(item);
 			total_qty += item.qty;
 			total_price += item.qty * item.rate;
 
+			const has_discount =
+				item.price_list_rate &&
+				item.rate < item.price_list_rate;
+
+			const discount_percent =
+				item.discount_percentage ||
+				(has_discount
+					? Math.round(
+						(1 - item.rate / item.price_list_rate) * 100
+					)
+					: 0);
+
 			const div = document.createElement("div");
-			div.style = "display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid #eee;";
+			div.style = `
+				display: flex;
+				justify-content: space-between;
+				align-items: flex-start;
+				padding: 0.5rem 0;
+				border-bottom: 1px solid #eee;
+			`;
+
 			div.innerHTML = `
-				<div style="font-weight: 500;">
+				<div style="font-weight: 500; font-size: 0.9rem; line-height: 1.2;">
 					${item.item_name}
-					<div style="font-size: 0.85rem; color: #777;">${item.item_code}</div>
+					<div style="font-size: 0.6rem; color: #777;">
+						${item.item_code}
+					</div>
 				</div>
-				<div style="text-align: right;">
-					<div>${item.qty} × Rp ${item.rate.toLocaleString("id-ID")}</div>
-					<div style="font-weight: bold;">Rp ${(item.qty * item.rate).toLocaleString("id-ID")}</div>
+
+				<div style="text-align: right; font-size: 0.6rem; line-height: 1.25;">
+					<div>
+						${item.qty} × Rp ${item.rate.toLocaleString("id-ID")}
+					</div>
+
+					${has_discount ? `
+						<div class="discount-section" style="
+							margin-top: 2px;
+							display: flex;
+							justify-content: flex-end;
+							gap: 6px;
+							align-items: center;
+						">
+							<span style="
+								text-decoration: line-through;
+								color: #999;
+								font-size: 0.5rem;
+							">
+								Rp ${item.price_list_rate.toLocaleString("id-ID")}
+							</span>
+							<span style="
+								color: #e53935;
+								font-size: 0.4rem;
+								font-weight: 600;
+							">
+								${discount_percent}% off
+							</span>
+						</div>
+					` : ``}
+
+
+					<div style="font-weight: 600; font-size: 0.85rem; margin-top: 2px;">
+						Rp ${(item.qty * item.rate).toLocaleString("id-ID")}
+					</div>
 				</div>
 			`;
+
+
 			container.appendChild(div);
 		});
+
 
 		document.getElementById("total-qty").textContent = total_qty;
 		document.getElementById("total-price").textContent = `Rp ${total_price.toLocaleString("id-ID")}`;

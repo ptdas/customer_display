@@ -1,0 +1,56 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-27 16:20:55.682168",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "dikirim_dari",
+  "customer_pos",
+  "dikirim_ke",
+  "supplier_pinv"
+ ],
+ "fields": [
+  {
+   "fieldname": "customer_pos",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer POS",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "dikirim_ke",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Dikirim Ke",
+   "options": "Company"
+  },
+  {
+   "fieldname": "supplier_pinv",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Supplier PINV",
+   "options": "Supplier"
+  },
+  {
+   "fieldname": "dikirim_dari",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Dikirim Dari",
+   "options": "Company"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-01-30 15:47:29.802336",
+ "modified_by": "Administrator",
+ "module": "Customer Display",
+ "name": "Stock Movement Inter Settings",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

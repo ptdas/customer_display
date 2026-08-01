@@ -34,13 +34,22 @@ erpnext.PointOfSale.Controller = class {
 		  }],
 		  values => {
 			frappe.call({
-			  method: "customer_display.api.verify_pos_code",
+			  method: "customer_display.api.verify_pos_code_auth",
 			  args: {
-				user: frappe.session.user,
-				code: values.code
+				// user: frappe.session.user,
+				pos_profile: cur_frm.doc.pos_profile,
+				code: values.code,
+				description: "Auth Stock Availability"
 			  },
 			  callback: r => {
-				if (r.message === true) {
+				if (r.message && r.message.valid === true) {
+					let child = cur_frm.add_child("custom_auth_provider");
+					child.auth_provider = r.message.auth_provider;
+					child.description = __(r.message.description); 
+					
+					cur_frm.refresh_field("custom_auth_provider"); 
+
+					console.log("Authenticator:", r.message.auth_provider); 
 				  // OK: flag override and continue
 				  if (frm) frm.set_value("custom_allow_zero_stock", 1);
 				  resolve();
@@ -257,6 +266,7 @@ erpnext.PointOfSale.Controller = class {
 		this.prepare_dom();
 		this.prepare_components();
 		this.prepare_menu();
+
 		this.page.set_primary_action(
 			__("Customer Display"),
 			() => {
@@ -264,14 +274,224 @@ erpnext.PointOfSale.Controller = class {
 					method: "customer_display.api.clear_customer_display",
 					callback: () => {
 						const encoded_profile = encodeURIComponent(this.pos_profile || "");
-                		window.open(`/app/customer-display?pos_profile=${encoded_profile}`, "_blank");
+						window.open(
+							`/app/customer-display?pos_profile=${encoded_profile}`,
+							"_blank"
+						);
 					}
 				});
 			}
 		);
 
+		if (frappe.user_roles.includes("POS Item Price Check")) {
+			this.page.set_secondary_action(
+				__("Item Price List"),
+				() => {
+					this.show_custom_price_list_dialog();
+				}
+			);
+		}
+
 		this.make_new_invoice();
 	}
+
+	show_custom_price_list_dialog() {
+		const dialog = new frappe.ui.Dialog({
+			title: __("Item Price Lookup"),
+			fields: [
+				{
+					fieldname: "search",
+					label: __("Search Item"),
+					fieldtype: "Data",
+					placeholder: __("Barcode / Item Code / Item Name"),
+				},
+				{ fieldtype: "Section Break" },
+				{
+					fieldname: "price_table",
+					fieldtype: "HTML"
+				},
+				{ fieldtype: "Section Break" },
+				{
+					fieldname: "pricing_rule_info",
+					fieldtype: "HTML"
+				}
+			]
+		});
+
+		dialog.show();
+		dialog.$wrapper.find(".modal-dialog").css("max-width", "90%");
+
+		let internal = false;
+
+		const clear_price = () => {
+			internal = true;
+			dialog.fields_dict.price_table.$wrapper.html("");
+			dialog.fields_dict.pricing_rule_info.$wrapper.html("");
+			internal = false;
+		};
+
+		const render_price_table = (items) => `
+			<table class="table table-bordered table-sm text-left mb-2" style="margin-top:0;">
+				<thead>
+					<tr>
+						<th>Item Code</th>
+						<th>Item Name</th>
+						<th>Retail</th>
+						<th>Grosir</th>
+						<th>Marketplace</th>
+					</tr>
+				</thead>
+				<tbody>
+					${items.map(data => `
+						<tr>
+							<td>${data.item_code}</td>
+							<td>${data.item_name}</td>
+							<td class="h5 m-0">${frappe.format(data.retail || 0, { fieldtype: "Currency" })}</td>
+							<td class="h5 m-0">${frappe.format(data.grosir || 0, { fieldtype: "Currency" })}</td>
+							<td class="h5 m-0">${frappe.format(data.marketplace || 0, { fieldtype: "Currency" })}</td>
+						</tr>
+					`).join("")}
+				</tbody>
+			</table>
+		`;
+
+		// const render_pricing_rule_table = (items) => {
+		// 	let all_rules = [];
+		// 	items.forEach(item => {
+		// 		if(item.pricing_rules) all_rules = all_rules.concat(item.pricing_rules);
+		// 	});
+
+		// 	if (!all_rules.length) return `<div class="text-muted">Tidak ada Pricing Rule aktif</div>`;
+
+		// 	const rows = all_rules.map(r => `
+		// 		<tr>
+		// 			<td><a href="/app/item/${r.item_code}" target="_blank">${r.item_code}</a></td>
+		// 			<td><a href="/app/pricing-rule/${r.pricing_rule}" target="_blank">${r.pricing_rule}</a>
+		// 				${r.is_applied ? `<span class="badge badge-primary ml-1"><i class="fa fa-check"></i> Dipakai</span>` : ``}
+		// 			</td>
+		// 			<td>${r.sumber || "-"}</td> 
+		// 			<td>${r.price_or_product_discount || "-"}</td>
+		// 			<td class="text-center">${r.priority ?? "-"}</td>
+		// 			<td class="text-right">${r.discount_percentage || 0}%</td>
+		// 			<td class="text-right">${frappe.format(r.discount_amount || 0, { fieldtype: "Currency" })}</td>
+		// 			<td>${r.free_item || "-"}</td>
+		// 			<td class="text-center">${r.min_qty || "-"}</td>
+		// 			<td class="text-center">${r.max_qty || "-"}</td>
+		// 			<td>${r.valid_from ? frappe.datetime.str_to_user(r.valid_from) : "-"}</td>
+		// 			<td>${r.valid_upto ? frappe.datetime.str_to_user(r.valid_upto) : "-"}</td>
+		// 		</tr>
+		// 	`).join("");
+
+
+		// 	return `
+		// 		<div style="max-height:260px; overflow:auto;">
+		// 			<table class="table table-bordered table-sm">
+		// 				<thead>
+		// 					<tr>
+		// 						<th style="width:10%;">Item Code</th>
+		// 						<th style="width:20%;">Prc Rule</th>
+		// 						<th style="width:10%;">Sumber</th>
+		// 						<th style="width:10%;">Type</th>
+		// 						<th style="width:5%;" class="text-center">Priority</th>
+		// 						<th style="width:5%;" class="text-right">Disc %</th>
+		// 						<th style="width:5%;" class="text-right">Disc Amt</th>
+		// 						<th style="width:5%;">Free Item</th>
+		// 						<th style="width:5%;" class="text-center">Min</th>
+		// 						<th style="width:5%;" class="text-center">Max</th>
+		// 						<th style="width:10%;">Valid From</th>
+		// 						<th style="width:10%;">Valid Upto</th>
+		// 					</tr>
+		// 				</thead>
+		// 				<tbody>${rows}</tbody>
+		// 			</table>
+		// 		</div>
+		// 	`;
+		// }
+
+		const render_pricing_rule_table = (items) => {
+			let all_rules = [];
+			items.forEach(item => {
+				if(item.pricing_rules) all_rules = all_rules.concat(item.pricing_rules);
+			});
+
+			if (!all_rules.length) return `<div class="text-muted">Tidak ada Pricing Rule aktif</div>`;
+
+			const rows = all_rules.map(r => `
+				<tr>
+					<td><a href="/app/item/${r.item_code}" target="_blank">${r.item_code}</a></td>
+					<td><a href="/app/pricing-rule/${r.pricing_rule}" target="_blank">${r.pricing_rule}</a>
+						${r.is_applied ? `<span class="badge badge-primary ml-1"><i class="fa fa-check"></i> Dipakai</span>` : ``}
+					</td>
+					<td>${r.sumber || "-"}</td>
+					<td>${r.price_or_product_discount || "-"}</td>
+					<td class="text-center">${r.priority ?? "-"}</td>
+					<td class="text-right">${r.discount_percentage || 0}%</td>
+					<td class="text-right">${frappe.format(r.discount_amount || 0, { fieldtype: "Currency" })}</td>
+					<td>${r.free_item || "-"}</td>
+					<td class="text-center">${r.min_qty || "-"}</td>
+					<td class="text-center">${r.max_qty || "-"}</td>
+					<td>${r.valid_from ? frappe.datetime.str_to_user(r.valid_from) : "-"}</td>
+					<td>${r.valid_upto ? frappe.datetime.str_to_user(r.valid_upto) : "-"}</td>
+				</tr>
+			`).join("");
+
+			return `
+				<div style="max-height:260px; overflow:auto;">
+					<table class="table table-bordered table-sm" style="width:100%; table-layout:fixed;">
+						<thead>
+							<tr>
+								<th style="">Item Code</th>
+								<th style="width:6%;">Pricing Rule</th>
+								<th style="width:6%;">Sumber</th>
+								<th style="width:5%;">Type</th>
+								<th style="width:5%;" class="text-center">Priority</th>
+								<th style="width:5%;" class="text-right">Disc %</th>
+								<th style="width:5%;" class="text-right">Disc Amt</th>
+								<th style="">Free Item</th>
+								<th style="width:5%;" class="text-center">Min</th>
+								<th style="width:5%;" class="text-center">Max</th>
+								<th style="width:8%;">Valid From</th>
+								<th style="width:8%;">Valid Upto</th>
+							</tr>
+						</thead>
+						<tbody>${rows}</tbody>
+					</table>
+				</div>
+			`;
+		}
+
+
+		const fetch_items = frappe.utils.debounce((search_value) => {
+			if (!search_value) {
+				clear_price();
+				return;
+			}
+
+			frappe.call({
+				method: "customer_display.customer_display.page.point_of_sale.custom_pos_method.search_items_dialog",
+				args: { search: search_value, limit: 100 }, 
+				callback: (r) => {
+					if (!r.message || !r.message.length) {
+						clear_price();
+						return;
+					}
+
+					internal = true;
+					dialog.fields_dict.price_table.$wrapper.html(render_price_table(r.message));
+					dialog.fields_dict.pricing_rule_info.$wrapper.html(render_pricing_rule_table(r.message));
+					internal = false;
+				}
+			});
+		}, 250);
+
+		dialog.fields_dict.search.$input.on("input", function () {
+			if (internal) return;
+			fetch_items(this.value.trim());
+		});
+
+		dialog.fields_dict.search.$input.focus();
+	}
+
 
 	prepare_dom() {
 		this.wrapper.append(`<div class="point-of-sale-app"></div>`);
@@ -293,12 +513,12 @@ erpnext.PointOfSale.Controller = class {
 
 		// this.page.add_menu_item(__("Open Form View"), this.open_form_view.bind(this), false, "Ctrl+F");
 
-		// this.page.add_menu_item(
-		// 	__("Toggle Recent Orders"),
-		// 	this.toggle_recent_order.bind(this),
-		// 	false,
-		// 	"Ctrl+O"
-		// );
+		this.page.add_menu_item(
+			__("Toggle Recent Orders"),
+			this.toggle_recent_order.bind(this),
+			false,
+			"Ctrl+O"
+		);
 
 		// this.page.add_menu_item(__("Save as Draft"), this.save_draft_invoice.bind(this), false, "Ctrl+S");
 
@@ -710,6 +930,12 @@ erpnext.PointOfSale.Controller = class {
 
 				if (this.is_current_item_being_edited(item_row) || from_selector) {
 					await frappe.model.set_value(item_row.doctype, item_row.name, field, value);
+					console.log("AFTER UPDATE", {
+						qty: item_row.qty,
+						rate: item_row.rate,
+						discount: item_row.discount_percentage,
+						pricing_rules: item_row.pricing_rules
+					});
 					this.update_cart_html(item_row);
 				}
 			} else {
@@ -764,22 +990,76 @@ erpnext.PointOfSale.Controller = class {
 		frappe.utils.play_sound("error");
 	}
 
+	// get_item_from_frm({ name, item_code, batch_no, uom, rate }) {
+	// 	let item_row = null;
+	// 	if (name) {
+	// 		item_row = this.frm.doc.items.find((i) => i.name == name);
+	// 	} else {
+	// 		// if item is clicked twice from item selector
+	// 		// then "item_code, batch_no, uom, rate" will help in getting the exact item
+	// 		// to increase the qty by one
+	// 		const has_batch_no = batch_no !== "null" && batch_no !== null;
+	// 		console.log("=== SCAN ITEM ===");
+	// 		console.log("incoming", {
+	// 			item_code,
+	// 			batch_no,
+	// 			uom,
+	// 			rate: flt(rate)
+	// 		});
+
+	// 		console.log(
+	// 			"existing rows",
+	// 			this.frm.doc.items.map((i) => ({
+	// 				name: i.name,
+	// 				item_code: i.item_code,
+	// 				batch_no: i.batch_no,
+	// 				uom: i.uom,
+	// 				rate: i.rate,
+	// 				discount: i.discount_percentage,
+	// 				has_pricing_rule: i.has_pricing_rule,
+	// 				pricing_rules: i.pricing_rules
+	// 			}))
+	// 		);
+
+	// 		item_row = this.frm.doc.items.find(
+	// 			(i) =>
+	// 				i.item_code === item_code &&
+	// 				(!has_batch_no || (has_batch_no && i.batch_no === batch_no)) &&
+	// 				i.uom === uom &&
+	// 				i.rate === flt(rate)
+	// 		);
+	// 	}
+
+	// 	return item_row || {};
+	// }
+
+	
 	get_item_from_frm({ name, item_code, batch_no, uom, rate }) {
 		let item_row = null;
+
 		if (name) {
 			item_row = this.frm.doc.items.find((i) => i.name == name);
 		} else {
-			// if item is clicked twice from item selector
-			// then "item_code, batch_no, uom, rate" will help in getting the exact item
-			// to increase the qty by one
 			const has_batch_no = batch_no !== "null" && batch_no !== null;
-			item_row = this.frm.doc.items.find(
-				(i) =>
-					i.item_code === item_code &&
-					(!has_batch_no || (has_batch_no && i.batch_no === batch_no)) &&
-					i.uom === uom &&
-					i.rate === flt(rate)
-			);
+
+			item_row = this.frm.doc.items.find((i) => {
+				// item + batch + uom harus sama
+				if (
+					i.item_code !== item_code ||
+					(has_batch_no && i.batch_no !== batch_no) ||
+					i.uom !== uom
+				) {
+					return false;
+				}
+
+				// Jika row punya pricing rule, boleh merge 
+				if (i.has_pricing_rule) {
+					return true;
+				}
+
+				// Jika tidak ada pricing rule, tetap cocokkan rate
+				return i.rate === flt(rate);
+			});
 		}
 
 		return item_row || {};
@@ -1014,6 +1294,7 @@ erpnext.PointOfSale.Controller = class {
 	// }
 
 	async save_and_checkout() {
+		
 		// ─────────────────────────────────────────────────
 		// 1) For each line, enforce stock/auth override
 		// ─────────────────────────────────────────────────

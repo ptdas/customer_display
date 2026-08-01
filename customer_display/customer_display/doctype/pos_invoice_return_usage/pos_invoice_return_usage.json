@@ -1,0 +1,44 @@
+{
+ "actions": [],
+ "creation": "2026-01-23 12:27:56.318140",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "pos_invoice_return",
+  "amount",
+  "available_amount"
+ ],
+ "fields": [
+  {
+   "fieldname": "pos_invoice_return",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "pos_invoice_return"
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "amount"
+  },
+  {
+   "fieldname": "available_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "available_amount"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-01-23 12:29:37.940329",
+ "modified_by": "Administrator",
+ "module": "Customer Display",
+ "name": "POS Invoice Return Usage",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

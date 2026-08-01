@@ -4,17 +4,17 @@ frappe.ui.form.on("POS Closing Entry", {
 			const user = frappe.session.user;
 			const roles = frappe.user_roles || [];
 
-			// If user has bypass role, return no filter
-			if (roles.includes("99_ByPass Open POS")) {
-				return {}; // No filter, show all
+			let filters = {
+				status: "Open"
+			};
+
+			// Kalau tidak punya bypass role → filter user juga
+			if (!roles.includes("99_ByPass Open POS")) {
+				filters.user = user;
 			}
 
-			// Otherwise, filter by current user
-			return {
-				filters: {
-					user: user
-				}
-			};
+			return { filters };
 		});
-	}
+
+	},
 });

@@ -198,6 +198,8 @@ erpnext.PointOfSale.ItemDetails = class {
 			"rate",
 			"conversion_factor",
 			"discount_percentage",
+
+			"discount_amount",
 			"warehouse",
 			"actual_qty",
 			"price_list_rate",

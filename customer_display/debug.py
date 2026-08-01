@@ -16,5 +16,21 @@ def create_tutup_kasir():
 	closing_entry.save()
 	
 def start_import():
-	doc = frappe.get_doc("Data Import","Item Price Import on 2025-12-28 20:39:43.769031")
+	doc = frappe.get_doc("Data Import","Stock Entry Import on 2026-01-01 22:40:58.797076")
 	doc.start_import()
+
+def start_import2():
+	doc = frappe.get_doc("Data Import","Item Price Import on 2026-01-01 05:23:08.379058")
+	doc.start_import()
+def rename_customer():
+	data = frappe.db.sql("select name , custom_kode from `tabCustomer` where name != custom_kode", as_list=1)
+	count=0
+	for row in data:
+		frappe.rename_doc("Customer",row[0],row[1])
+		frappe.db.commit()
+		count=count+1
+		print(count)
+
+def debug():
+	doc = frappe.get_doc("Company","BJB4")
+	doc.create_default_accounts()

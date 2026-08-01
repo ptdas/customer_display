@@ -1,7 +1,7 @@
 {
  "actions": [],
  "allow_rename": 1,
- "creation": "2025-06-23 13:39:37.675575",
+ "creation": "2026-01-29 11:56:04.430273",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -11,6 +11,8 @@
   "sales_return_point_account",
   "account_si_pos_each_item_discount",
   "account_si_pos_invoice_discount",
+  "pos_charge_account",
+  "pos_retur_mode_of_payment",
   "supplier_tab",
   "default_target_pkp_company",
   "default_target_pitza_company",
@@ -20,7 +22,11 @@
   "axtra_tab",
   "axtra_tax_coa",
   "lcv_tab",
-  "item_forwarder"
+  "item_forwarder",
+  "tab_5_tab",
+  "stock_movement_inter_settings",
+  "moved_tab",
+  "allowed_tab_moved"
  ],
  "fields": [
   {
@@ -123,12 +129,46 @@
    "label": "Default Target Pitza Company BJM",
    "link_filters": "[[\"Company\",\"parent_company\",\"=\",\"BJM\"]]",
    "options": "Company"
+  },
+  {
+   "fieldname": "pos_charge_account",
+   "fieldtype": "Link",
+   "label": "Pos Charge Account",
+   "options": "Account"
+  },
+  {
+   "fieldname": "pos_retur_mode_of_payment",
+   "fieldtype": "Link",
+   "label": "Pos Retur Mode Of Payment",
+   "options": "Mode of Payment"
+  },
+  {
+   "fieldname": "tab_5_tab",
+   "fieldtype": "Tab Break",
+   "label": "Stock"
+  },
+  {
+   "fieldname": "stock_movement_inter_settings",
+   "fieldtype": "Table",
+   "label": "Stock Movement Inter Settings",
+   "options": "Stock Movement Inter Settings"
+  },
+  {
+   "fieldname": "moved_tab",
+   "fieldtype": "Tab Break",
+   "label": "Moved"
+  },
+  {
+   "fieldname": "allowed_tab_moved",
+   "fieldtype": "Link",
+   "label": "Allowed Tab Moved",
+   "options": "Role"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2025-12-27 14:49:09.004177",
+ "modified": "2026-02-06 16:03:00.629629",
  "modified_by": "Administrator",
  "module": "Customer Display",
  "name": "AXTRA Settings",

@@ -98,9 +98,13 @@ def custom_validate_loyalty_points(ref_doc, points_to_redeem):
 			frappe.throw(_("You don't have enough Loyalty Points to redeem - {} - {}".format(points_to_redeem, loyalty_program_details.loyalty_points)))
 
 		loyalty_amount = flt(points_to_redeem * loyalty_program_details.conversion_factor)
+        
+		# if loyalty_amount > ref_doc.rounded_total:
+		# 	frappe.throw(_("You can't redeem Loyalty Points having more value than the Rounded Total.  - {} - {}".format(loyalty_amount, loyalty_program_details.rounded_total)))
 
-		if loyalty_amount > ref_doc.rounded_total:
-			frappe.throw(_("You can't redeem Loyalty Points having more value than the Rounded Total."))
+		#ganti cek rounded total ke grand total
+		if loyalty_amount > ref_doc.grand_total:
+			frappe.throw(_("You can't redeem Loyalty Points having more value than the Grand Total.  - {} - {}".format(loyalty_amount, loyalty_program_details.grand_total)))
 
 		if not ref_doc.loyalty_amount and ref_doc.loyalty_amount != loyalty_amount:
 			ref_doc.loyalty_amount = loyalty_amount

@@ -1,0 +1,385 @@
+<style>
+  .tabel_no_garis{
+   border-top:none!important;
+   border-left:none!important;
+   border-right:none!important;
+   border-bottom:none!important;
+  }
+  .tabel_no_garis_up{
+   border-top:1px solid black!important;
+   border-left:none!important;
+   border-right:none!important;
+   border-bottom:none!important;
+  }
+  .tabel_garis_kiri_kanan{
+   border-top:none!important;
+   border-left:1px solid black!important;
+   border-right:1px solid black!important;
+   border-bottom:none!important;
+  }
+  .tabel_garis_tengah{
+   border-top:1px solid black!important;
+   border-left:1px solid black!important;
+   border-right:1px solid black!important;
+   border-bottom:1px solid black!important;
+   text-align: center;
+   padding: 0!important;
+  }
+  .tabel_garis_kiri{
+   border-top:1px solid black!important;
+   border-left:1px solid black!important;
+   border-right:1px solid black!important;
+   border-bottom:1px solid black!important;
+   text-align: left;
+   padding: 0!important;
+  }
+  .print-format td, .print-format th {
+    padding: 2px !important;
+  }
+
+@media screen {
+    .print-format {
+      width: 8cm;
+      padding: 0.1in;
+      min-height: 8in;
+    }
+  }
+</style>
+
+<div class="page-break" style="font-size:90%">  
+  <table class="table table-borderless" style="padding:0px;font-size:100%;margin: 0px!important;margin-top: 10px!important;">
+    <colgroup>
+      <col style="width:48%">
+      <col style="width:2%">
+      <col style="width:50%">
+    </colgroup>
+    <tbody> 
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Kasir
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          {%= frappe.session.user_fullname %}
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Tanggal
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          {%=filters.date %}
+        </td>
+      </tr>
+      
+    </tbody>
+  </table>
+{% 
+var kas_awal = 0;
+var kas_akhir = 0;
+var jual_kas = 0;
+var jual_kartu = 0;
+var retur_kas = 0;
+var retur_kartu=0;
+var voucher=0;
+var byk=0;
+
+for(var i=0, l=data.length; i<l; i++) {
+kas_awal = kas_awal+ data[i][1];
+jual_kas = jual_kas+ data[i][2];
+jual_kartu=jual_kartu+ data[i][3];
+voucher= voucher+ data[i][4];
+retur_kas= retur_kas+ data[i][5];
+retur_kartu= retur_kartu+ data[i][6];
+kas_akhir= kas_akhir+ data[i][7];
+byk=byk+data[i][8];
+%}
+  <table class="table table-borderless" style="padding:0px;font-size:100%;margin: 0px!important;margin-top: 10px!important;">
+    <colgroup>
+      <col style="width:48%">
+      <col style="width:2%">
+      <col style="width:50%">
+    </colgroup>
+    <tbody> 
+	<tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Online Partai
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+	0
+        </td>
+      </tr>
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Online
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+	0
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Total Online
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+	0
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Kas Awal
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          {%= kas_awal %}
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Jual Cash
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          {%= jual_kas %}
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Jual Card
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          {%= jual_kartu %}
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Voucher
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+	{%= voucher %}
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Jumlah Jual
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+	{%= jual_kas + jual_kartu %}
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Retur Cash
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          {%= retur_kas %}
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Retur Card
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          {%= retur_kartu %}
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Discount Item
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+	0
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Discount Nota
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+	0
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Total Jual
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+	{%= byk %}
+        </td>
+      </tr>
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Kas Akhir
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+	{%= kas_akhir %}
+        </td>
+      </tr>
+      
+    </tbody>
+  </table>
+
+  
+
+  <table class="table table-borderless" style="padding:0px;font-size:100%;margin: 0px!important;margin-top: 10px!important;">
+    <colgroup>
+      <col style="width:48%">
+      <col style="width:2%">
+      <col style="width:50%">
+    </colgroup>
+    <tbody> 
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Member Free
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+	0
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Member Non Free
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+	0
+        </td>
+      </tr>
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Biaya Member
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+	0
+        </td>
+      </tr>    
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Total Kas Akhir
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+	{%= kas_akhir %}
+        </td>
+      </tr>    
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Pinjaman
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+	0
+        </td>
+      </tr>   
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Total
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+	{%= kas_akhir %}
+        </td>
+      </tr>   
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Uang Charge Kredit
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+	0
+        </td>
+      </tr> 
+
+      <tr>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          Total Tutup
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+          :
+        </td>
+        <td class="tabel_no_garis" style="padding:0px!important">
+	{%= kas_akhir %}
+        </td>
+      </tr> 
+
+    </tbody>
+  </table>
+  </div>

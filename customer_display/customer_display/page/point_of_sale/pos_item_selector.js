@@ -37,6 +37,7 @@ erpnext.PointOfSale.ItemSelector = class {
 	}
 
 	async load_items_data() {
+
 		if (!this.item_group) {
 			const res = await frappe.db.get_value("Item Group", { lft: 1, is_group: 1 }, "name");
 			this.parent_item_group = res.message.name;
@@ -68,9 +69,14 @@ erpnext.PointOfSale.ItemSelector = class {
 	render_item_list(items) {
 		this.$items_container.html("");
 
+		let sudah = []
 		items.forEach((item) => {
-			const item_html = this.get_item_html(item);
-			this.$items_container.append(item_html);
+			if (!sudah.includes(item.item_code)) {
+				const item_html = this.get_item_html(item);
+				sudah.push(item.item_code)
+				this.$items_container.append(item_html);	
+				// console.log(sudah)
+			}
 		});
 	}
 
@@ -336,12 +342,24 @@ erpnext.PointOfSale.ItemSelector = class {
 				const items = this.search_index[search_term];
 				this.items = items;
 				this.render_item_list(items);
-				this.auto_add_item && this.items.length == 1 && this.add_filtered_item_to_cart();
+				// this.auto_add_item && this.items.length == 1 && this.add_filtered_item_to_cart();
+				const is_barcode =
+					this.items.length === 1 &&
+					this.items[0] &&
+					this.items[0].barcode;
+
+				if (this.auto_add_item && is_barcode) {
+					this.add_filtered_item_to_cart();
+				}
 				return;
 			}
 		}
 
 		this.get_items({ search_term }).then(({ message }) => {
+
+			console.log("SEARCH:", search_term);
+    		console.log("MESSAGE:", message);
+
 			// eslint-disable-next-line no-unused-vars
 			const { items, serial_no, batch_no, barcode } = message;
 			if (search_term && !barcode) {
@@ -349,7 +367,18 @@ erpnext.PointOfSale.ItemSelector = class {
 			}
 			this.items = items;
 			this.render_item_list(items);
-			this.auto_add_item && this.items.length == 1 && this.add_filtered_item_to_cart();
+			
+			console.log("AFTER RENDER:", this.items.length);
+			// console.log("ITEM 0:", this.items[0]);
+			// this.auto_add_item && this.items.length == 1 && this.add_filtered_item_to_cart();
+			const is_barcode =
+				this.items.length === 1 &&
+				this.items[0] &&
+				this.items[0].barcode;
+
+			if (this.auto_add_item && is_barcode) {
+				this.add_filtered_item_to_cart();
+			}
 		});
 	}
 

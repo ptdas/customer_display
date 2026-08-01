@@ -3,8 +3,8 @@
  "creation": "2020-01-28 22:05:44.819140",
  "docstatus": 0,
  "doctype": "Page",
- "idx": 9,
- "modified": "2025-06-11 22:29:36.315959",
+ "idx": 15,
+ "modified": "2026-08-01 10:51:12.396165",
  "modified_by": "Administrator",
  "module": "Customer Display",
  "name": "point-of-sale",
@@ -26,6 +26,18 @@
   },
   {
    "role": "Sales Master Manager"
+  },
+  {
+   "role": "Kasir - Admin"
+  },
+  {
+   "role": "Kasir - SPV"
+  },
+  {
+   "role": "Owner"
+  },
+  {
+   "role": "Tax Strategic"
   }
  ],
  "script": null,

@@ -299,6 +299,7 @@
    "search_index": 1
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "posting_time",
    "fieldtype": "Time",
    "label": "Posting Time",
@@ -684,6 +685,7 @@
    "read_only": 1
   },
   {
+   "allow_on_submit": 1,
    "fieldname": "base_net_total",
    "fieldtype": "Currency",
    "label": "Net Total (Company Currency)",
@@ -1562,7 +1564,7 @@
  "icon": "fa fa-file-text",
  "is_submittable": 1,
  "links": [],
- "modified": "2025-04-30 17:38:07.625153",
+ "modified": "2026-08-01 10:45:47.328515",
  "modified_by": "Administrator",
  "module": "Customer Display",
  "name": "POS Invoice",

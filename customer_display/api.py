@@ -48,7 +48,12 @@ def update_customer_display_customer(pos_profile, customer=None, points=None):
 		frappe.throw(_("POS Profile is required"))
 
 	doc = frappe.get_doc("Customer Display Settings", {"pos_profile": pos_profile})
-	doc.current_customer = customer
+	try:
+		cust = frappe.get_doc("Customer",customer)
+		doc.current_customer = cust.customer_name
+	except:
+		doc.current_customer = customer
+	
 	doc.current_points = points
 
 	doc.save(ignore_permissions=True)
@@ -73,13 +78,58 @@ def update_customer_display_pay_amount(pos_profile, paid=None, change=None):
 
 	frappe.publish_realtime(f"update_customer_display_paid_{pos_profile}", None, after_commit=True)
 	
+# @frappe.whitelist(allow_guest=True)
+# def get_customer_display(pos_profile=None):
+# 	if not pos_profile:
+# 		frappe.throw(_("POS Profile is required"))
+
+# 	doc = frappe.get_doc("Customer Display Settings", {"pos_profile": pos_profile})
+# 	return doc.current_items or []
+
 @frappe.whitelist(allow_guest=True)
 def get_customer_display(pos_profile=None):
 	if not pos_profile:
 		frappe.throw(_("POS Profile is required"))
 
 	doc = frappe.get_doc("Customer Display Settings", {"pos_profile": pos_profile})
-	return doc.current_items or []
+
+	price_list = frappe.db.get_value(
+		"POS Profile",
+		pos_profile,
+		"selling_price_list"
+	)
+
+	items = []
+
+	for row in doc.current_items:
+		item = row.as_dict()
+
+		price_list_rate = None
+		if price_list:
+			price_list_rate = frappe.db.get_value(
+				"Item Price",
+				{
+					"item_code": row.item_code,
+					"price_list": price_list
+				},
+				"price_list_rate"
+			)
+
+		item["price_list_rate"] = price_list_rate or row.rate
+
+		if price_list_rate and row.rate < price_list_rate:
+			item["discount_percentage"] = round(
+				(1 - (row.rate / price_list_rate)) * 100,
+				2
+			)
+		else:
+			item["discount_percentage"] = 0
+
+		items.append(item)
+
+	return items
+
+
 
 @frappe.whitelist()
 def clear_customer_display(pos_profile=None):
@@ -122,3 +172,32 @@ def verify_pos_code(user, code):
 		if row.user == user and row.code == code:
 			return True
 	return False
+
+@frappe.whitelist()
+def verify_pos_code_auth(pos_profile, code, description=""):
+    pos_auth_list = frappe.get_all(
+        "POS Auth",
+        filters={"auth_code": code},
+        fields=["name", "auth_provider"]  
+    )
+
+    if not pos_auth_list:
+        return False
+
+    for pos_auth in pos_auth_list:
+        child_exist = frappe.db.exists(
+            "POS Auth Profile",
+            {
+                "parent": pos_auth.name,
+                "pos_profile": pos_profile
+            }
+        )
+
+        if child_exist:
+            return {
+                "valid": True,
+                "auth_provider": pos_auth.auth_provider,
+				"description": description
+            }
+
+    return False

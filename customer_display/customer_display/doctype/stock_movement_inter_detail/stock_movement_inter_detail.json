@@ -1,0 +1,121 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-02-02 13:22:50.150631",
+ "default_view": "List",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "item_code",
+  "item_name",
+  "column_break_gnmo",
+  "qty",
+  "rate",
+  "sales_invoice_no",
+  "purchase_invoice_no",
+  "section_break_yzaa",
+  "from_company",
+  "s_warehouse",
+  "column_break_eawk",
+  "to_company",
+  "t_warehouse"
+ ],
+ "fields": [
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Item Code",
+   "options": "Item"
+  },
+  {
+   "fetch_from": "item_code.item_name",
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "Item Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_gnmo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "qty",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "qty"
+  },
+  {
+   "fieldname": "section_break_yzaa",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "s_warehouse",
+   "fieldtype": "Link",
+   "label": "Source Warehouse",
+   "options": "Warehouse",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_eawk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "t_warehouse",
+   "fieldtype": "Link",
+   "label": "Target Warehouse",
+   "options": "Warehouse",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "rate",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Rate",
+   "read_only": 1
+  },
+  {
+   "fieldname": "from_company",
+   "fieldtype": "Data",
+   "label": "From Company",
+   "read_only": 1
+  },
+  {
+   "fieldname": "to_company",
+   "fieldtype": "Data",
+   "label": "To Company",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "sales_invoice_no",
+   "fieldtype": "Link",
+   "label": "Sales Invoice No",
+   "options": "Sales Invoice",
+   "read_only": 1
+  },
+  {
+   "allow_on_submit": 1,
+   "fieldname": "purchase_invoice_no",
+   "fieldtype": "Link",
+   "label": "Purchase Invoice No",
+   "options": "Purchase Invoice",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-02-02 13:22:50.150631",
+ "modified_by": "Administrator",
+ "module": "Customer Display",
+ "name": "Stock Movement Inter Detail",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

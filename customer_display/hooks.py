@@ -34,7 +34,9 @@ doctype_js = {
 	"Supplier": "public/js/custom_supplier.js",
 	"Item": "public/js/custom_item.js",
 	"POS Closing Entry": "public/js/custom_pos_closing_entry.js",
-    "Payment Entry": "public/js/custom_payment_entry.js"
+    "Payment Entry": "public/js/custom_payment_entry.js",
+    "POS Invoice": "public/js/custom_pos_invoice.js",
+    "Pricing Rule": "public/js/custom_pricing_rule.js"
 }
 
 # include js, css files in header of web template
@@ -155,34 +157,63 @@ doc_events = {
 	"Account": {
 		"after_insert": "customer_display.custom_standard.account_custom.clone_account_to_children"
 	},
+	# "Item" : {
+	# 	"validate": "customer_display.custom_standard.item_custom.create_barcode_image_file"
+	# },
+
+#	"Customer":{
+#		"after_insert": "customer_display.alan_api.execute_to_alan_server"
+#	},
 
 	# "Item": {
 	#     "validate": "customer_display.custom_standard.item_custom.on_vendor_change_transfer_stock"
 	# },
 
-	"Delivery Note": {
-		"validate": "customer_display.custom_standard.delivery_note_custom.set_expense"
-	},
+#	"Loyalty Point Entry":{
+#		"after_insert": "customer_display.alan_api.create_poin_customer_from_api"
+#	},
+
+	# "Delivery Note": {
+	# 	"validate": "customer_display.custom_standard.delivery_note_custom.set_expense"
+	# },
 
 	"Item":{
-		"validate": "customer_display.custom_standard.qr_generator.generate_barcode_image"
+		"validate": "customer_display.custom_standard.qr_generator.create_barcode_image_file"
 	},
 
 	"Payment Entry": {
-		"validate": "customer_display.custom_standard.payment_entry_custom.validate_ri_payment",
+        "autoname": "customer_display.custom_standard.payment_entry_custom.custom_payment_entry_autoname",
+		# "validate": "customer_display.custom_standard.payment_entry_custom.validate_ri_payment",
 		"on_submit": "customer_display.custom_standard.loyalty_point_custom.payment_entry_on_submit"
+	},
+	"Pricing Rule": {
+		"autoname": "customer_display.custom_standard.pricing_rule_custom.autoname",
+        "validate": "customer_display.custom_standard.pricing_rule_custom.validate_pricing_rule_company_warehouse"
 	},
 	"POS Invoice": {
 		"autoname": "customer_display.custom_standard.pos_invoice_custom.custom_autoname",
+		"validate": "customer_display.customer_display.page.point_of_sale.custom_pos_method.set_grosir_price_list",
 		"before_insert": "customer_display.custom_standard.pos_invoice_custom.create_si_pos_id_no",
-		"on_submit": "customer_display.customer_display.page.point_of_sale.custom_pos_method.split_pos_invoice",
+		"before_submit": ["customer_display.customer_display.page.point_of_sale.custom_pos_method.apply_custom_charge_to_pos_invoice"
+                    ,"customer_display.customer_display.page.point_of_sale.custom_pos_return_ledger.before_submit_pos_invoice"],
+		"on_submit": ["customer_display.customer_display.page.point_of_sale.custom_pos_method.split_pos_invoice"
+                ,"customer_display.customer_display.page.point_of_sale.custom_pos_return_ledger.on_submit_pos_invoice",
+                "customer_display.customer_display.page.point_of_sale.custom_pos_method.handle_pos_return"],
+        "on_cancel": "customer_display.customer_display.page.point_of_sale.custom_pos_return_ledger.on_cancel_pos_invoice",
 	},
 	"POS Profile": {
 		"after_insert": "customer_display.custom_standard.pos_profile_custom.create_customer_display_settings"
 	},
 
 	"POS Opening Entry":{
-		"validate": "customer_display.custom_standard.pos_opening_entry_custom.check_double"
+		# "validate": "customer_display.custom_standard.pos_opening_entry_custom.check_double"
+        "validate": "customer_display.custom_standard.pos_opening_entry_custom.force_start_date_midnight"
+	},
+
+	"POS Closing Entry":{
+		"validate": ["customer_display.custom_standard.pos_opening_entry_custom.ambil_closing_kalau_kosong",
+               "customer_display.custom_standard.pos_opening_entry_custom.ambil_return_usage",
+               "customer_display.custom_standard.pos_opening_entry_custom.validate_get_tutup_kasir"],
 	},
 	"Purchase Order": {
 		"on_submit": "customer_display.custom_standard.purchase_order_custom.auto_create_purchase_invoice",
@@ -195,8 +226,13 @@ doc_events = {
 	},
 	"Purchase Invoice": {
 		"autoname": "customer_display.custom_standard.autoname_custom.autoname_purchase",
-        "validate": "customer_display.custom_standard.purchase_invoice_custom.recalc_lcv",
-		"on_submit": ["customer_display.custom_standard.purchase_invoice_custom.create_lcv_on_submit","customer_display.custom_standard.purchase_invoice_custom.update_item_last_vendor"]
+        "validate": ["customer_display.custom_standard.purchase_invoice_custom.recalc_lcv",
+                     "customer_display.custom_standard.purchase_invoice_custom.update_items_prices",
+                     "customer_display.custom_standard.purchase_invoice_custom.calculate_custom_lcv_per_quantity"],
+		"on_submit": ["customer_display.custom_standard.purchase_invoice_custom.create_lcv_on_submit",
+                "customer_display.custom_standard.purchase_invoice_custom.update_used_forwarder_to_pinv",
+                "customer_display.custom_standard.purchase_invoice_custom.update_item_last_vendor"],
+        "on_cancel": "customer_display.custom_standard.purchase_invoice_custom.update_used_forwarder_to_pinv"
 	},
 	"Sales Invoice": {
 		"autoname": "customer_display.custom_standard.autoname_custom.autoname_purchase",
@@ -207,7 +243,14 @@ doc_events = {
 	},
 	"Warehouse": {
 		"after_insert": "customer_display.custom_standard.warehouse_custom.clone_warehouse_to_children"
+	},"Landed Cost Voucher": {
+		"on_submit": "customer_display.custom_standard.custom_landed_cost_voucher.on_lcv_submit",
+		"on_cancel": "customer_display.custom_standard.custom_landed_cost_voucher.on_lcv_cancel"
+	},
+    "Mode of Payment": {
+        "validate": ["customer_display.custom_standard.custom_mode_of_payment.validate_mdr_percent"],
 	}
+    	
 	
 }
 

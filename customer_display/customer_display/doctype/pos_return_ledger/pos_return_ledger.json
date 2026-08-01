@@ -1,0 +1,88 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-01-23 18:33:57.333912",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "customer",
+  "return_pos_invoice",
+  "used_in_pos_invoice",
+  "amount",
+  "posting_date",
+  "is_return_source",
+  "remarks"
+ ],
+ "fields": [
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "customer",
+   "options": "Customer",
+   "read_only": 1
+  },
+  {
+   "fieldname": "return_pos_invoice",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "return_pos_invoice",
+   "read_only": 1
+  },
+  {
+   "fieldname": "used_in_pos_invoice",
+   "fieldtype": "Data",
+   "label": "used_in_pos_invoice",
+   "read_only": 1
+  },
+  {
+   "fieldname": "amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "amount",
+   "read_only": 1
+  },
+  {
+   "fieldname": "posting_date",
+   "fieldtype": "Date",
+   "label": "posting_date",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "is_return_source",
+   "fieldtype": "Check",
+   "label": "is_return_source",
+   "read_only": 1
+  },
+  {
+   "fieldname": "remarks",
+   "fieldtype": "Data",
+   "label": "remarks",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-23 18:40:01.848755",
+ "modified_by": "Administrator",
+ "module": "Customer Display",
+ "name": "POS Return Ledger",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

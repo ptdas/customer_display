@@ -1,5 +1,49 @@
 
+function calculate_custom_price(frm, cdt, cdn) {
+	const row = locals[cdt][cdn];
 
+	const price_list = row.custom_price_list_reference;
+	const percentage = parseFloat(row.custom_price_list_percentage_) || 0;
+
+	if (!price_list) {
+		frappe.model.set_value(
+			cdt,
+			cdn,
+			"custom_calculated_price",
+			0
+		);
+		return;
+	}
+
+	let base_price = 0;
+
+	if (price_list === "Retail") {
+		base_price = parseFloat(row.custom_retail_price) || 0;
+	} else if (price_list === "Grosir") {
+		base_price = parseFloat(row.custom_grosir_price) || 0;
+	} else if (price_list === "Marketplace") {
+		base_price = parseFloat(row.custom_marketplace_price) || 0;
+	}
+
+	if (!base_price) {
+		frappe.model.set_value(
+			cdt,
+			cdn,
+			"custom_calculated_price",
+			0
+		);
+		return;
+	}
+
+	const calculated_price = (base_price * percentage / 100);
+
+	frappe.model.set_value(
+		cdt,
+		cdn,
+		"custom_calculated_price",
+		calculated_price
+	);
+}
 
 
 frappe.ui.form.on("Purchase Invoice", {
@@ -26,6 +70,7 @@ frappe.ui.form.on("Purchase Invoice", {
 		set_applicable_charges_for_item(frm);
 	},
 	custom_distribute_charges_based_on(frm) {
+		toggle_manual_distribution(frm);
 		set_applicable_charges_for_item(frm);
 	},
 	refresh(frm){
@@ -33,6 +78,8 @@ frappe.ui.form.on("Purchase Invoice", {
 		hide_perm(frm);
 
 		custom_get_item_from_pinv_with_lcv(frm);
+
+		toggle_manual_distribution(frm);
 
 		/////pinv forwader
 		 if (frm.doc.docstatus === 1 &&
@@ -91,9 +138,49 @@ frappe.ui.form.on("Purchase Invoice", {
 
 });
 
+function set_item_cost_info(frm, cdt, cdn) {
+	const row = locals[cdt][cdn];
+
+	if (!row.item_code) return;
+
+	frappe.call({
+		method: "customer_display.custom_standard.purchase_invoice_custom.get_item_cost_info",
+		args: {
+			item_code: row.item_code,
+			company: frm.doc.company || null
+		},
+		callback(r) {
+			if (!r.message) return;
+
+			frappe.model.set_value(
+				cdt,
+				cdn,
+				"custom_last_qty",
+				r.message.last_stock || 0
+			);
+
+			frappe.model.set_value(
+				cdt,
+				cdn,
+				"custom_cogs_lcv_ppn",
+				r.message.cogs_lcv_ppn || 0
+			);
+		}
+	});
+}
+
 frappe.ui.form.on("Purchase Invoice Item", {
+	custom_price_list_reference(frm, cdt, cdn) {
+        calculate_custom_price(frm, cdt, cdn);
+    },
+
+    custom_price_list_percentage_(frm, cdt, cdn) {
+        calculate_custom_price(frm, cdt, cdn);
+    },
 	item_code(frm, cdt, cdn) {
-		fill_item_price(frm,cdt,cdn)
+		fill_item_price(frm, cdt, cdn);
+		set_item_cost_info(frm, cdt, cdn);
+
 		sync_items_to_lcv(frm);
 		set_total_taxes_and_charges(frm);
 		set_applicable_charges_for_item(frm);
@@ -204,6 +291,88 @@ function sync_items_to_lcv(frm) {
 	frm.refresh_field("custom_lcv_item");
 }
 
+// function custom_get_item_from_pinv_with_lcv(frm) {
+// 	if (frm.doc.docstatus !== 0) return;
+
+// 	frm.add_custom_button(
+// 		__("Purchase Invoice (LCV)"),
+// 		function () {
+
+// 			const dialog = new frappe.ui.form.MultiSelectDialog({
+// 				doctype: "Purchase Invoice",
+// 				target: frm,
+
+// 				setters: {
+// 					custom_forwarder: undefined,
+// 					custom_lcv_total_taxes_and_charges: undefined,
+// 				},
+
+// 				get_query() {
+// 					const values = this.dialog?.get_values?.() || {};
+
+// 					let filters = [
+// 						["Purchase Invoice", "docstatus", "=", 1],
+// 						["Purchase Invoice", "custom_has_lcv", "=", 1],
+// 						["Purchase Invoice", "custom_forwarder", "is", "set"],
+// 						["Purchase Invoice", "custom_forwarder", "!=", ""],
+// 						["Purchase Invoice", "custom_forwarded_to_pinv", "is", "not set"],
+// 					];
+
+// 					if (values.custom_forwarder) {
+// 						filters.push([
+// 							"Purchase Invoice",
+// 							"custom_forwarder",
+// 							"=",
+// 							values.custom_forwarder
+// 						]);
+// 					}
+
+// 					if (values.custom_lcv_total_taxes_and_charges) {
+// 						filters.push([
+// 							"Purchase Invoice",
+// 							"custom_lcv_total_taxes_and_charges",
+// 							">=",
+// 							values.custom_lcv_total_taxes_and_charges
+// 						]);
+// 					}
+
+// 					return { filters };
+// 				},
+
+// 				action(selections) {
+// 					if (!selections || !selections.length) {
+// 						frappe.msgprint("Pilih minimal satu Purchase Invoice");
+// 						return;
+// 					}
+
+// 					frappe.call({
+// 						method: "customer_display.custom_standard.purchase_invoice_custom.create_forwarder_pinv_multi",
+// 						args: {
+// 							source_names: selections
+// 						},
+// 						freeze: true,
+// 						freeze_message: __("Creating Forwarder Purchase Invoice..."),
+// 						callback(r) {
+// 							if (!r.message) return;
+
+// 							frappe.model.sync(r.message);
+// 							frappe.set_route("Form", r.message.doctype, r.message.name);
+// 						}
+// 					});
+// 				}
+// 			});
+
+// 			dialog.$wrapper.on("change", "input, select", () => {
+// 				dialog.refresh();
+// 			});
+
+// 		},
+// 		__("Get Items From")
+// 	);
+// }
+
+
+
 function custom_get_item_from_pinv_with_lcv(frm) {
 	if (frm.doc.docstatus !== 0) return;
 
@@ -211,49 +380,54 @@ function custom_get_item_from_pinv_with_lcv(frm) {
 		__("Purchase Invoice (LCV)"),
 		function () {
 
-			const dialog = new frappe.ui.form.MultiSelectDialog({
-				doctype: "Purchase Invoice",
-				target: frm,
+			const d = new frappe.ui.Dialog({
+				title: __("Select Purchase Invoice (LCV)"),
+				size: "extra-large",
+				fields: [
 
-				setters: {
-					custom_forwarder: undefined,
-					custom_lcv_total_taxes_and_charges: undefined,
-				},
+					// ===== FILTER 3 KOLOM =====
+					{
+						fieldname: "name",
+						label: "Purchase Invoice",
+						fieldtype: "Data"
+					},
+					{
+						fieldtype: "Column Break"
+					},
+					{
+						fieldname: "custom_forwarder_name",
+						label: "Forwarder",
+						fieldtype: "Data"
+					},
+					{
+						fieldtype: "Column Break"
+					},
+					{
+						fieldname: "custom_lcv_total_taxes_and_charges",
+						label: "Min LCV Total",
+						fieldtype: "Currency"
+					},
 
-				get_query() {
-					const values = this.dialog?.get_values?.() || {};
-
-					let filters = [
-						["Purchase Invoice", "docstatus", "=", 1],
-						["Purchase Invoice", "custom_has_lcv", "=", 1],
-						["Purchase Invoice", "custom_forwarder", "is", "set"],
-						["Purchase Invoice", "custom_forwarder", "!=", ""],
-						["Purchase Invoice", "custom_forwarded_to_pinv", "is", "not set"],
-					];
-
-					if (values.custom_forwarder) {
-						filters.push([
-							"Purchase Invoice",
-							"custom_forwarder",
-							"=",
-							values.custom_forwarder
-						]);
+					// ===== TABEL =====
+					{
+						fieldtype: "Section Break"
+					},
+					{
+						fieldname: "results",
+						fieldtype: "HTML"
 					}
+				],
 
-					if (values.custom_lcv_total_taxes_and_charges) {
-						filters.push([
-							"Purchase Invoice",
-							"custom_lcv_total_taxes_and_charges",
-							">=",
-							values.custom_lcv_total_taxes_and_charges
-						]);
-					}
+				primary_action_label: __("Get Items"),
 
-					return { filters };
-				},
+				primary_action() {
+					const selected = [];
 
-				action(selections) {
-					if (!selections || !selections.length) {
+					d.$wrapper.find(".lcv-pi-check:checked").each(function () {
+						selected.push($(this).data("name"));
+					});
+
+					if (!selected.length) {
 						frappe.msgprint("Pilih minimal satu Purchase Invoice");
 						return;
 					}
@@ -261,12 +435,14 @@ function custom_get_item_from_pinv_with_lcv(frm) {
 					frappe.call({
 						method: "customer_display.custom_standard.purchase_invoice_custom.create_forwarder_pinv_multi",
 						args: {
-							source_names: selections
+							source_names: selected
 						},
 						freeze: true,
 						freeze_message: __("Creating Forwarder Purchase Invoice..."),
 						callback(r) {
 							if (!r.message) return;
+
+							d.hide();
 
 							frappe.model.sync(r.message);
 							frappe.set_route("Form", r.message.doctype, r.message.name);
@@ -275,15 +451,135 @@ function custom_get_item_from_pinv_with_lcv(frm) {
 				}
 			});
 
-			dialog.$wrapper.on("change", "input, select", () => {
-				dialog.refresh();
-			});
+			function load_data() {
+				const values = d.get_values() || {};
 
+				frappe.call({
+					method: "frappe.client.get_list",
+					args: {
+						doctype: "Purchase Invoice",
+						fields: [
+							"name",
+							"custom_forwarder_name",
+							"posting_date",
+							"custom_lcv_total_taxes_and_charges"
+						],
+						filters: [
+							["docstatus", "=", 1],
+							["custom_has_lcv", "=", 1],
+							["custom_forwarder", "is", "set"],
+							["custom_forwarder", "!=", ""],
+							["custom_forwarded_to_pinv", "is", "not set"]
+						],
+						limit_page_length: 200,
+						order_by: "posting_date desc"
+					},
+					callback(r) {
+						let data = r.message || [];
+
+						// Filter Purchase Invoice
+						if (values.name) {
+							const txt = values.name.toLowerCase();
+
+							data = data.filter(row =>
+								(row.name || "")
+									.toLowerCase()
+									.includes(txt)
+							);
+						}
+
+						// Filter Forwarder
+						if (values.custom_forwarder_name) {
+							const txt = values.custom_forwarder_name.toLowerCase();
+
+							data = data.filter(row =>
+								(row.custom_forwarder_name || "")
+									.toLowerCase()
+									.includes(txt)
+							);
+						}
+
+						// Filter Min LCV
+						if (values.custom_lcv_total_taxes_and_charges) {
+							data = data.filter(row =>
+								flt(row.custom_lcv_total_taxes_and_charges) >=
+								flt(values.custom_lcv_total_taxes_and_charges)
+							);
+						}
+
+						let html = `
+							<div style="max-height:520px; overflow:auto; border:1px solid var(--border-color); border-radius:8px;">
+								<table class="table table-bordered table-hover" style="margin-bottom:0;">
+									<thead style="position:sticky; top:0; background:var(--subtle-fg); z-index:1;">
+										<tr>
+											<th style="width:42px; text-align:center;">
+												<input type="checkbox" id="check-all-lcv">
+											</th>
+											<th>Purchase Invoice</th>
+											<th>Forwarder</th>
+											<th>Posting Date</th>
+											<th class="text-right">LCV Total</th>
+										</tr>
+									</thead>
+									<tbody>
+						`;
+
+						if (!data.length) {
+							html += `
+								<tr>
+									<td colspan="5" class="text-center text-muted" style="padding:24px;">
+										Tidak ada data
+									</td>
+								</tr>
+							`;
+						} else {
+							data.forEach(row => {
+								html += `
+									<tr>
+										<td style="text-align:center;">
+											<input type="checkbox"
+												class="lcv-pi-check"
+												data-name="${row.name}">
+										</td>
+										<td>${row.name}</td>
+										<td>${row.custom_forwarder_name || "-"}</td>
+										<td>${frappe.datetime.str_to_user(row.posting_date)}</td>
+										<td class="text-right">
+											${format_currency(row.custom_lcv_total_taxes_and_charges)}
+										</td>
+									</tr>
+								`;
+							});
+						}
+
+						html += `
+									</tbody>
+								</table>
+							</div>
+						`;
+
+						d.fields_dict.results.$wrapper.html(html);
+
+						// Check all
+						d.$wrapper.find("#check-all-lcv").on("change", function () {
+							const checked = $(this).is(":checked");
+							d.$wrapper.find(".lcv-pi-check").prop("checked", checked);
+						});
+					}
+				});
+			}
+
+			// Live filter
+			d.fields_dict.name.$input.on("input", load_data);
+			d.fields_dict.custom_forwarder_name.$input.on("input", load_data);
+			d.fields_dict.custom_lcv_total_taxes_and_charges.$input.on("input", load_data);
+
+			d.show();
+			load_data();
 		},
 		__("Get Items From")
 	);
 }
-
 
 
 function set_applicable_charges_for_item(frm) {
@@ -291,10 +587,9 @@ function set_applicable_charges_for_item(frm) {
 
 	let based_on = (frm.doc.custom_distribute_charges_based_on || "").toLowerCase();
 
-	if (based_on === "distribute manually") {
-		(frm.doc.custom_lcv_item || []).forEach(item => {
-			item.applicable_charges = 0;
-		});
+	if (based_on === 'distribute manually') {
+		frm.refresh_field('custom_lcv_item');
+		return;
 	} else {
 		let total_item_cost = 0.0;
 
@@ -401,8 +696,12 @@ function fill_item_price(frm,cdt,cdn){
 					frappe.model.set_value(cdt, cdn, 'custom_marketplace_price', latest_prices['MarketPlace'].price_list_rate);
 				}
 			}
+
+			calculate_custom_price(frm, cdt, cdn);
 		}
 	});
+
+
 }
 
 
@@ -442,17 +741,26 @@ function set_company_filter(frm) {
 								set_filter(frm, vendor_companies);
 							} else {
 								let allowed_companies = user_companies.map(row => row.company);
-								
-								let filtered_companies = vendor_companies.filter(company => 
+
+								let filtered_companies = vendor_companies.filter(company =>
 									allowed_companies.includes(company)
 								);
-								
-								if (filtered_companies.length === 0) {
-									frappe.msgprint(__('No matching companies found between supplier and your access rights'));
-									frm.set_value('company', '');
+
+								if (vendor_companies.length === 1) {
+									frm.set_value('company', vendor_companies[0]);
+								} else if (vendor_companies.length > 1 && !vendor_companies.includes(frm.doc.company)) {
+									frm.set_value('company', vendor_companies[0]);
 								}
-								
-								set_filter(frm, filtered_companies);
+
+								if (filtered_companies.length > 0) {
+									set_filter(frm, filtered_companies);
+								} 
+								// else {
+								// 	frappe.msgprint(__('Company filled from supplier, but you do not have access to select it'));
+
+								// 	// biarkan nilai company tetap ada
+								// 	// jangan set filter kosong
+								// }
 							}
 						} else {
 							set_filter(frm, vendor_companies);
@@ -492,3 +800,50 @@ function set_filter(frm, companies) {
 		frm.set_value('company', '');
 	}
 }
+
+function toggle_manual_distribution(frm) {
+	const is_manual =
+		(frm.doc.custom_distribute_charges_based_on || '').toLowerCase() === 'distribute manually';
+
+	const grid = frm.fields_dict.custom_lcv_item.grid;
+
+	// ubah property field
+	grid.update_docfield_property(
+		'applicable_charges',
+		'read_only',
+		is_manual ? 0 : 1
+	);
+
+	// force rebuild grid agar langsung berubah tanpa tutup-buka form
+	grid.refresh();
+
+	// refresh field parent
+	frm.refresh_field('custom_lcv_item');
+}
+
+// function set_filter(frm, companies) {
+//     if (companies && companies.length > 0) {
+//         frm.set_query('company', function() {
+//             return {
+//                 filters: {
+//                     name: ['in', companies]
+//                 }
+//             };
+//         });
+
+//         // Jika company sekarang tidak valid menurut supplier, ganti
+//         if (!companies.includes(frm.doc.company)) {
+//             frm.set_value('company', companies[0]);
+//         }
+
+//     } else {
+//         frm.set_query('company', function() {
+//             return {
+//                 filters: {
+//                     name: ['in', []]
+//                 }
+//             };
+//         });
+
+//     }
+// }

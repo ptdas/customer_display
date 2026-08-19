@@ -36,7 +36,8 @@ doctype_js = {
 	"POS Closing Entry": "public/js/custom_pos_closing_entry.js",
     "Payment Entry": "public/js/custom_payment_entry.js",
     "POS Invoice": "public/js/custom_pos_invoice.js",
-    "Pricing Rule": "public/js/custom_pricing_rule.js"
+    "Pricing Rule": "public/js/custom_pricing_rule.js",
+    "POS Opening Entry": "public/js/custom_pos_opening_entry.js",
 }
 
 # include js, css files in header of web template
@@ -192,7 +193,7 @@ doc_events = {
 	},
 	"POS Invoice": {
 		"autoname": "customer_display.custom_standard.pos_invoice_custom.custom_autoname",
-		"validate": "customer_display.customer_display.page.point_of_sale.custom_pos_method.set_grosir_price_list",
+		"validate": ["customer_display.customer_display.page.point_of_sale.custom_pos_method.set_grosir_price_list"],
 		"before_insert": "customer_display.custom_standard.pos_invoice_custom.create_si_pos_id_no",
 		"before_submit": ["customer_display.customer_display.page.point_of_sale.custom_pos_method.apply_custom_charge_to_pos_invoice"
                     ,"customer_display.customer_display.page.point_of_sale.custom_pos_return_ledger.before_submit_pos_invoice"],
@@ -228,7 +229,9 @@ doc_events = {
 		"autoname": "customer_display.custom_standard.autoname_custom.autoname_purchase",
         "validate": ["customer_display.custom_standard.purchase_invoice_custom.recalc_lcv",
                      "customer_display.custom_standard.purchase_invoice_custom.update_items_prices",
-                     "customer_display.custom_standard.purchase_invoice_custom.calculate_custom_lcv_per_quantity"],
+                     "customer_display.custom_standard.purchase_invoice_custom.calculate_custom_lcv_per_quantity",
+                     "customer_display.custom_standard.purchase_invoice_custom.validate_item_cost_info",
+                     "customer_display.custom_standard.purchase_invoice_custom.set_expense_account_from_item"],
 		"on_submit": ["customer_display.custom_standard.purchase_invoice_custom.create_lcv_on_submit",
                 "customer_display.custom_standard.purchase_invoice_custom.update_used_forwarder_to_pinv",
                 "customer_display.custom_standard.purchase_invoice_custom.update_item_last_vendor"],
@@ -249,7 +252,10 @@ doc_events = {
 	},
     "Mode of Payment": {
         "validate": ["customer_display.custom_standard.custom_mode_of_payment.validate_mdr_percent"],
-	}
+	},
+    "Supplier": {
+        "validate": "customer_display.custom_standard.supplier.set_vendor_company"
+    }
     	
 	
 }

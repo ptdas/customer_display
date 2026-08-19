@@ -3442,7 +3442,12 @@ Return`,
             default: frappe.defaults.get_default("company"),
             options: "Company",
             fieldname: "company",
-            reqd: 1
+            reqd: 1,
+            get_query: () => ({
+              filters: {
+                name: ["in", ["BJB", "BJM"]]
+              }
+            })
           },
           {
             fieldtype: "Link",
@@ -3451,7 +3456,20 @@ Return`,
             fieldname: "pos_profile",
             reqd: 1,
             get_query: () => pos_profile_query(),
-            onchange: () => fetch_pos_payment_methods()
+            onchange: async () => {
+              const pos_profile = dialog.fields_dict.pos_profile.get_value();
+              if (!pos_profile)
+                return;
+              const r = await frappe.db.get_value(
+                "POS Profile",
+                pos_profile,
+                "company"
+              );
+              if (r.message && r.message.company) {
+                dialog.set_value("company", r.message.company);
+              }
+              fetch_pos_payment_methods();
+            }
           },
           {
             fieldname: "balance_details",
@@ -3486,9 +3504,10 @@ Return`,
       });
       dialog.show();
       const pos_profile_query = () => {
+        const company = dialog.fields_dict.company.get_value();
         return {
-          query: "erpnext.accounts.doctype.pos_profile.pos_profile.pos_profile_query",
-          filters: { company: dialog.fields_dict.company.get_value() }
+          query: "customer_display.customer_display.page.point_of_sale.custom_pos_method.pos_profile_query_bjb_bjm",
+          filters: { company }
         };
       };
     }
@@ -4242,4 +4261,4 @@ Return`,
     }
   };
 })();
-//# sourceMappingURL=pos_customer_display.bundle.V4WUKR3N.js.map
+//# sourceMappingURL=pos_customer_display.bundle.F7MZMSQU.js.map

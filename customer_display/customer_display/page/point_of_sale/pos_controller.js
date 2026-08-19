@@ -175,7 +175,21 @@ erpnext.PointOfSale.Controller = class {
 					options: "Company",
 					fieldname: "company",
 					reqd: 1,
+					get_query: () => ({
+						filters: {
+							name: ["in", ["BJB", "BJM"]]
+						}
+					}),
 				},
+				// {
+				// 	fieldtype: "Link",
+				// 	label: __("POS Profile"),
+				// 	options: "POS Profile",
+				// 	fieldname: "pos_profile",
+				// 	reqd: 1,
+				// 	get_query: () => pos_profile_query(),
+				// 	onchange: () => fetch_pos_payment_methods(),
+				// },
 				{
 					fieldtype: "Link",
 					label: __("POS Profile"),
@@ -183,7 +197,23 @@ erpnext.PointOfSale.Controller = class {
 					fieldname: "pos_profile",
 					reqd: 1,
 					get_query: () => pos_profile_query(),
-					onchange: () => fetch_pos_payment_methods(),
+					onchange: async () => {
+						const pos_profile = dialog.fields_dict.pos_profile.get_value();
+						if (!pos_profile) return;
+
+						// Auto set company dari POS Profile
+						const r = await frappe.db.get_value(
+							"POS Profile",
+							pos_profile,
+							"company"
+						);
+
+						if (r.message && r.message.company) {
+							dialog.set_value("company", r.message.company);
+						}
+
+						fetch_pos_payment_methods();
+					},
 				},
 				{
 					fieldname: "balance_details",
@@ -220,10 +250,18 @@ erpnext.PointOfSale.Controller = class {
 			primary_action_label: __("Submit"),
 		});
 		dialog.show();
+		// const pos_profile_query = () => {
+		// 	return {
+		// 		query: "erpnext.accounts.doctype.pos_profile.pos_profile.pos_profile_query",
+		// 		filters: { company: dialog.fields_dict.company.get_value() },
+		// 	};
+		// };
 		const pos_profile_query = () => {
+			const company = dialog.fields_dict.company.get_value();
+
 			return {
-				query: "erpnext.accounts.doctype.pos_profile.pos_profile.pos_profile_query",
-				filters: { company: dialog.fields_dict.company.get_value() },
+				query: "customer_display.customer_display.page.point_of_sale.custom_pos_method.pos_profile_query_bjb_bjm",
+				filters: { company }
 			};
 		};
 	}

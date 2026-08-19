@@ -22,90 +22,172 @@ def check_po_qty(doc,method):
 	doc.db_update()
 	
 def create_lcv_on_submit(doc, method=None):
-    if not doc.update_stock:
-        return
+	
+	if not doc.update_stock:
+		return
 
-    if not doc.custom_lcv_total_taxes_and_charges or doc.custom_lcv_total_taxes_and_charges <= 0:
-        return
+	if not doc.custom_lcv_total_taxes_and_charges or doc.custom_lcv_total_taxes_and_charges <= 0:
+		return
 
-    if not doc.custom_forwarder:
-        frappe.throw("Forwarder LCV wajib diisi")
+	if not doc.custom_forwarder:
+		frappe.throw("Forwarder LCV wajib diisi")
 
-    items_with_charges = [i for i in doc.custom_lcv_item if i.applicable_charges > 0]
-    if not items_with_charges:
-        return
+	is_manual = (
+	(doc.custom_distribute_charges_based_on or '').lower() == 'distribute manually'
+	)
 
-    pi_item_map = {}
+	if is_manual:
+		total_manual = sum(flt(i.applicable_charges) for i in doc.custom_lcv_item)
 
-    for pi_item in doc.items:
-        key = (pi_item.item_code, pi_item.qty)
+		if round(total_manual, 2) != round(flt(doc.custom_lcv_total_taxes_and_charges), 2):
+			frappe.throw(
+				f'Total distribusi manual ({total_manual}) harus sama dengan '
+				f'total LCV ({doc.custom_lcv_total_taxes_and_charges})'
+			)
 
-        if key in pi_item_map:
-            frappe.throw(
-                f"Duplikat item_code + qty di Purchase Invoice: {pi_item.item_code} qty {pi_item.qty}"
-            )
+	items_with_charges = [i for i in doc.custom_lcv_item if i.applicable_charges > 0]
+	if not items_with_charges:
+		return
 
-        pi_item_map[key] = pi_item
+	pi_item_map = {}
 
-    lcv = frappe.new_doc("Landed Cost Voucher")
-    lcv.company = doc.company
-    lcv.posting_date = doc.posting_date
+	for pi_item in doc.items:
+		key = (pi_item.item_code, pi_item.qty)
 
-    if (doc.custom_distribute_charges_based_on or "").lower() == "constant":
-        lcv.distribute_charges_based_on = "Distribute Manually"
-    else:
-        lcv.distribute_charges_based_on = doc.custom_distribute_charges_based_on
+		if key in pi_item_map:
+			frappe.throw(
+				f"Duplikat item_code + qty di Purchase Invoice: {pi_item.item_code} qty {pi_item.qty}"
+			)
 
-    lcv.append("purchase_receipts", {
-        "receipt_document_type": "Purchase Invoice",
-        "receipt_document": doc.name,
-        "supplier": doc.supplier,
-        "posting_date": doc.posting_date,
-        "grand_total": doc.grand_total
-    })
+		pi_item_map[key] = pi_item
 
-    for item in items_with_charges:
-        key = (item.item_code, item.qty)
-        pi_item = pi_item_map.get(key)
+	lcv = frappe.new_doc("Landed Cost Voucher")
+	lcv.company = doc.company
+	lcv.posting_date = doc.posting_date
 
-        if not pi_item:
-            frappe.throw(
-                f"Purchase Invoice Item tidak ditemukan untuk {item.item_code} qty {item.qty}"
-            )
+	based_on = (doc.custom_distribute_charges_based_on or '').lower()
 
-        lcv.append("items", {
-            "item_code": pi_item.item_code,
-            "description": pi_item.description,
-            "qty": pi_item.qty,
-            "rate": pi_item.rate,
-            "amount": pi_item.amount,
-            "applicable_charges": item.applicable_charges,
+	if based_on in ['constant', 'distribute manually']:
+		lcv.distribute_charges_based_on = 'Distribute Manually'
+	else:
+		lcv.distribute_charges_based_on = doc.custom_distribute_charges_based_on
 
-            "receipt_document_type": "Purchase Invoice",
-            "receipt_document": doc.name,
-            "purchase_receipt_item": pi_item.name,
+	lcv.append("purchase_receipts", {
+		"receipt_document_type": "Purchase Invoice",
+		"receipt_document": doc.name,
+		"supplier": doc.supplier,
+		"posting_date": doc.posting_date,
+		"grand_total": doc.grand_total
+	})
 
-            "cost_center": pi_item.cost_center
-        })
+	for item in items_with_charges:
+		key = (item.item_code, item.qty)
+		pi_item = pi_item_map.get(key)
 
-    for tax in doc.custom_landed_cost_taxes_and_charges:
-        lcv.append("taxes", {
-            "expense_account": tax.expense_account,
-            "account_currency": tax.account_currency,
-            "amount": tax.amount,
-            "exchange_rate": tax.exchange_rate,
-            "description": tax.description,
-            "base_amount": tax.base_amount
-        })
+		if not pi_item:
+			frappe.throw(
+				f"Purchase Invoice Item tidak ditemukan untuk {item.item_code} qty {item.qty}"
+			)
 
-    lcv.insert(ignore_permissions=True)
-    lcv.submit()
+		lcv.append("items", {
+			"item_code": pi_item.item_code,
+			"description": pi_item.description,
+			"qty": pi_item.qty,
+			"rate": pi_item.rate,
+			"amount": pi_item.amount,
+			"applicable_charges": item.applicable_charges,
 
-    frappe.msgprint(
-        f"Landed Cost Voucher <b>{lcv.name}</b> berhasil dibuat dari Purchase Invoice <b>{doc.name}</b>"
-    )
+			"receipt_document_type": "Purchase Invoice",
+			"receipt_document": doc.name,
+			"purchase_receipt_item": pi_item.name,
+
+			"cost_center": pi_item.cost_center
+		})
+
+	for tax in doc.custom_landed_cost_taxes_and_charges:
+		lcv.append("taxes", {
+			"expense_account": tax.expense_account,
+			"account_currency": tax.account_currency,
+			"amount": tax.amount,
+			"exchange_rate": tax.exchange_rate,
+			"description": tax.description,
+			"base_amount": tax.base_amount
+		})
+
+	total_allocated = sum(flt(d.applicable_charges) for d in lcv.items)
+
+	# print("=== LCV DEBUG ===")
+	# print(f"Total Charges : {lcv.total_taxes_and_charges}")
+	# print(f"Allocated     : {total_allocated}")
+	# print(f"Difference    : {flt(lcv.total_taxes_and_charges) - total_allocated}")
+
+	for d in lcv.items:
+		print(f"{d.item_code} - {flt(d.applicable_charges)}")
+
+	# print("=== TAXES ===")
+	# for t in lcv.taxes:
+	# 	print(f"{t.expense_account} | amount={flt(t.amount)} | base_amount={flt(t.base_amount)}")
+
+	# # print(f"Company Currency: {lcv.company_currency}")
+	# print(f"Total Taxes and Charges: {lcv.total_taxes_and_charges}")
+
+	lcv.insert(ignore_permissions=True)
+	lcv.submit()
+
+	frappe.msgprint(
+		f"Landed Cost Voucher <b>{lcv.name}</b> berhasil dibuat dari Purchase Invoice <b>{doc.name}</b>"
+	)
 
 
+
+def test_submit_pi():
+	pi = frappe.get_doc("Purchase Invoice", "PI-AEP2242600007")
+
+	print("=== PI DEBUG ===")
+	print(f"Grand Total      : {pi.grand_total}")
+	print(f"Rounded Total    : {pi.rounded_total}")
+	print(f"Base Grand Total : {pi.base_grand_total}")
+	print(f"Total Taxes      : {pi.total_taxes_and_charges}")
+	print(f"Base Taxes       : {pi.base_total_taxes_and_charges}")
+
+	gl_map = pi.get_gl_entries()
+
+	debit = sum(d.debit for d in gl_map)
+	credit = sum(d.credit for d in gl_map)
+
+	print("=== PI GL DEBUG ===")
+	print(f"Debit  : {debit}")
+	print(f"Credit : {credit}")
+	print(f"Diff   : {debit - credit}")
+
+	for d in gl_map:
+		print(f"{d.account} | D={d.debit} | C={d.credit}")
+
+	print("=== ITEM TOTALS ===")
+
+	item_total = 0
+	for d in pi.items:
+		amt = flt(d.base_net_amount)
+		item_total += amt
+		print(d.item_code, amt)
+
+	print("Item Total:", item_total)
+	print("Tax Total :", flt(pi.base_total_taxes_and_charges))
+	print("Grand     :", flt(pi.base_grand_total))
+	print("Calc      :", flt(item_total + flt(pi.base_total_taxes_and_charges)))
+	print("Diff      :", flt(pi.base_grand_total - (item_total + flt(pi.base_total_taxes_and_charges))))
+
+	pi.submit()
+
+def fix_one_rupiah_diff(doc, method=None):
+    item_total = sum(flt(d.base_net_amount) for d in doc.items)
+    tax_total = flt(doc.base_total_taxes_and_charges)
+
+    diff = flt(doc.base_grand_total - (item_total + tax_total))
+
+    if abs(diff) == 1 and doc.taxes:
+        doc.taxes[-1].tax_amount = flt(doc.taxes[-1].tax_amount + diff)
+        doc.taxes[-1].base_tax_amount = flt(doc.taxes[-1].base_tax_amount + diff)
 
 def set_total_taxes_and_charges(doc):
 	total = 0.0
@@ -113,42 +195,81 @@ def set_total_taxes_and_charges(doc):
 		total += flt(tax.amount)
 	doc.custom_lcv_total_taxes_and_charges = total
 
+# def set_applicable_charges_for_item(doc):
+# 	if not doc.custom_landed_cost_taxes_and_charges:
+# 		return
+
+# 	based_on = (doc.custom_distribute_charges_based_on or "").lower()
+
+# 	if based_on == "distribute manually":
+# 		for item in doc.custom_lcv_item:
+# 			item.applicable_charges = 0
+# 	else:
+# 		total_item_cost = 0.0
+# 		for item in doc.custom_lcv_item:
+# 			if based_on == "constant":
+# 				total_item_cost += flt(item.constant or 0)
+# 			elif based_on in ["qty", "amount"]:
+# 				total_item_cost += flt(getattr(item, based_on, 0))
+
+# 		if total_item_cost <= 0:
+# 			return
+
+# 		total_charges = flt(doc.custom_lcv_total_taxes_and_charges or 0)
+# 		charges_accum = 0.0
+
+# 		for item in doc.custom_lcv_item:
+# 			if based_on == "constant":
+# 				item_value = flt(item.constant or 0)
+# 			else:
+# 				item_value = flt(getattr(item, based_on, 0))
+
+# 			item.applicable_charges = (item_value / total_item_cost) * total_charges
+# 			item.applicable_charges = flt(item.applicable_charges, 2)  
+# 			charges_accum += item.applicable_charges
+
+# 		diff = total_charges - charges_accum
+# 		if doc.custom_lcv_item:
+# 			doc.custom_lcv_item[-1].applicable_charges += diff
+
 def set_applicable_charges_for_item(doc):
 	if not doc.custom_landed_cost_taxes_and_charges:
 		return
 
-	based_on = (doc.custom_distribute_charges_based_on or "").lower()
+	based_on = (doc.custom_distribute_charges_based_on or '').lower()
 
-	if based_on == "distribute manually":
-		for item in doc.custom_lcv_item:
-			item.applicable_charges = 0
-	else:
-		total_item_cost = 0.0
-		for item in doc.custom_lcv_item:
-			if based_on == "constant":
-				total_item_cost += flt(item.constant or 0)
-			elif based_on in ["qty", "amount"]:
-				total_item_cost += flt(getattr(item, based_on, 0))
+	if based_on == 'distribute manually':
+		return
 
-		if total_item_cost <= 0:
-			return
+	total_item_cost = 0.0
 
-		total_charges = flt(doc.custom_lcv_total_taxes_and_charges or 0)
-		charges_accum = 0.0
+	for item in doc.custom_lcv_item:
+		if based_on == 'constant':
+			total_item_cost += flt(item.constant or 0)
+		elif based_on in ['qty', 'amount']:
+			total_item_cost += flt(getattr(item, based_on, 0))
 
-		for item in doc.custom_lcv_item:
-			if based_on == "constant":
-				item_value = flt(item.constant or 0)
-			else:
-				item_value = flt(getattr(item, based_on, 0))
+	if total_item_cost <= 0:
+		return
 
-			item.applicable_charges = (item_value / total_item_cost) * total_charges
-			item.applicable_charges = flt(item.applicable_charges, 2)  
-			charges_accum += item.applicable_charges
+	total_charges = flt(doc.custom_lcv_total_taxes_and_charges or 0)
+	charges_accum = 0.0
 
-		diff = total_charges - charges_accum
-		if doc.custom_lcv_item:
-			doc.custom_lcv_item[-1].applicable_charges += diff
+	for item in doc.custom_lcv_item:
+		if based_on == 'constant':
+			item_value = flt(item.constant or 0)
+		else:
+			item_value = flt(getattr(item, based_on, 0))
+
+		item.applicable_charges = (item_value / total_item_cost) * total_charges
+		item.applicable_charges = flt(item.applicable_charges, 2)
+
+		charges_accum += item.applicable_charges
+
+	diff = total_charges - charges_accum
+
+	if doc.custom_lcv_item:
+		doc.custom_lcv_item[-1].applicable_charges += diff
 
 def recalc_lcv(doc, method=None):
 	set_total_taxes_and_charges(doc)
@@ -510,3 +631,206 @@ def calculate_custom_lcv_per_quantity(doc, method):
                 value = (applicable_charges + amount) + (rate - net_rate)
 
             row.custom_lcv_per_quantity = flt(value, 0)
+
+
+def validate_item_cost_info(doc, method=None):
+    for row in doc.items:
+        if not row.item_code:
+            continue
+
+        info = get_item_cost_info(
+            item_code=row.item_code,
+            company=doc.company
+        )
+
+        row.custom_last_qty = info.get("last_stock", 0)
+        row.custom_cogs_lcv_ppn = info.get("cogs_lcv_ppn", 0)
+
+@frappe.whitelist()
+def get_item_cost_info(item_code, company=None):
+	if not item_code:
+		return {
+			"last_stock": 0,
+			"cogs_lcv_ppn": 0
+		}
+
+	stock_conditions = ""
+	stock_values = [item_code]
+
+	if company:
+		stock_conditions += " AND w.company = %s"
+		stock_values.append(company)
+
+	stock = frappe.db.sql(
+		f"""
+		SELECT
+			COALESCE(
+				SUM(
+					CASE
+						WHEN w.custom_tipe_warehouse IN ('Toko', 'Gudang')
+						THEN b.actual_qty
+						ELSE 0
+					END
+				), 0
+			) AS last_stock
+		FROM `tabBin` b
+		INNER JOIN `tabWarehouse` w ON w.name = b.warehouse
+		WHERE b.item_code = %s
+		{stock_conditions}
+		""",
+		tuple(stock_values),
+	)[0][0]
+
+	conditions = ""
+	values = [item_code]
+
+	if company:
+		conditions += " AND pi.company = %s"
+		values.append(company)
+
+	last_pinv = frappe.db.sql(
+		f"""
+		SELECT
+			pii.parent AS pinv_name,
+			pii.net_rate
+		FROM `tabPurchase Invoice Item` pii
+		INNER JOIN `tabPurchase Invoice` pi ON pi.name = pii.parent
+		WHERE pii.item_code = %s
+			AND pi.docstatus = 1
+			AND pi.is_return = 0
+			{conditions}
+		ORDER BY pi.posting_date DESC, pi.name DESC
+		LIMIT 1
+		""",
+		tuple(values),
+		as_dict=True,
+	)
+
+	if not last_pinv:
+		return {
+			"last_stock": flt(stock),
+			"cogs_lcv_ppn": 0
+		}
+
+	pinv_name = last_pinv[0]["pinv_name"]
+	cogs = flt(last_pinv[0]["net_rate"])
+
+	lcv_res = frappe.db.sql(
+		"""
+		SELECT applicable_charges / qty
+		FROM `tabPINV LCV Item`
+		WHERE parent = %s
+			AND item_code = %s
+		LIMIT 1
+		""",
+		(pinv_name, item_code),
+	)
+
+	lcv = flt(lcv_res[0][0]) if lcv_res and lcv_res[0][0] else 0
+
+	ppn_res = frappe.db.sql(
+		"""
+		SELECT COALESCE(SUM(ROUND((t.rate / 100) * pii.base_rate, 2)), 0)
+		FROM `tabPurchase Taxes and Charges` t
+		INNER JOIN `tabPurchase Invoice Item` pii
+			ON pii.parent = t.parent
+		WHERE t.parent = %s
+			AND pii.item_code = %s
+		""",
+		(pinv_name, item_code),
+	)
+
+	ppn = flt(ppn_res[0][0]) if ppn_res else 0
+
+	return {
+		"last_stock": flt(stock),
+		"cogs_lcv_ppn": flt(cogs + lcv + ppn)
+	}
+
+
+def patch_custom_forwarder_name():
+	"""
+	Backfill custom_forwarder_name dari Supplier.supplier_name
+	untuk semua Purchase Invoice lama.
+	"""
+
+	pis = frappe.get_all(
+		"Purchase Invoice",
+		filters={
+			"custom_forwarder": ["is", "set"]
+		},
+		fields=["name", "custom_forwarder", "custom_forwarder_name"],
+		limit_page_length=0
+	)
+
+	updated = 0
+	skipped = 0
+
+	for pi in pis:
+		supplier_name = frappe.db.get_value(
+			"Supplier",
+			pi.custom_forwarder,
+			"supplier_name"
+		)
+
+		if not supplier_name:
+			skipped += 1
+			continue
+
+		if pi.custom_forwarder_name != supplier_name:
+			frappe.db.set_value(
+				"Purchase Invoice",
+				pi.name,
+				"custom_forwarder_name",
+				supplier_name,
+				update_modified=False
+			)
+			updated += 1
+		else:
+			skipped += 1
+
+	frappe.db.commit()
+
+	frappe.msgprint(
+		f"Patch selesai. Updated: {updated}, Skipped: {skipped}"
+	)
+
+	return {
+		"updated": updated,
+		"skipped": skipped
+	}
+
+
+
+def set_expense_account_from_item(doc, method):
+    company_abbr = frappe.get_cached_value("Company", doc.company, "abbr")
+
+    for row in doc.items:
+        if not row.item_code:
+            continue
+
+        expense_account = frappe.db.get_value(
+            "Item Default",
+            {
+                "parent": row.item_code,
+                "company": doc.company
+            },
+            "expense_account"
+        )
+
+        if not expense_account:
+            expense_account = frappe.db.get_value(
+                "Item Default",
+                {"parent": row.item_code},
+                "expense_account"
+            )
+
+        if not expense_account:
+            continue
+
+        base_name = expense_account.rsplit(" - ", 1)[0]
+
+        new_account = f"{base_name} - {company_abbr}"
+
+        if frappe.db.exists("Account", new_account):
+            row.expense_account = new_account

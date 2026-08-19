@@ -4,6 +4,8 @@ import string
 from frappe.model.document import Document
 from datetime import datetime
 from frappe.model.naming import make_autoname
+from frappe.utils import flt
+
 
 @frappe.whitelist()
 def custom_autoname(doc,method):
@@ -76,3 +78,74 @@ def generate_custom_si_pos_id(self):
 	serial = f"{count + 1:04d}"
 
 	return f"{prefix}{year}{doy_str}{serial}"
+
+
+
+
+@frappe.whitelist()
+def get_return_payment_distribution(source_invoice, grand_total):
+    source = frappe.get_doc("POS Invoice", source_invoice)
+
+    total_paid = sum(flt(p.amount) for p in source.payments)
+
+    if not total_paid:
+        return []
+
+    # Return invoice => payment harus negatif dan tanpa desimal
+    grand_total = -abs(int(round(flt(grand_total))))
+
+    result = []
+    running_total = 0
+
+    payments = source.payments  
+
+    for i, p in enumerate(payments, 1):
+        if i == len(payments):
+            amount = grand_total - running_total
+        else:
+            if total_paid:
+                raw_amount = grand_total * flt(p.amount) / total_paid
+                amount = int(round(raw_amount))
+            else:
+                amount = 0
+
+            running_total += amount
+
+        result.append({
+            "mode_of_payment": p.mode_of_payment,
+            "amount": amount
+        })
+
+    return result
+
+def validate_return_payments(doc, method=None):
+    if not doc.is_return or not doc.return_against:
+        return
+
+    source = frappe.get_doc("POS Invoice", doc.return_against)
+
+    total_paid = sum(flt(p.amount) for p in source.payments)
+    if not total_paid:
+        return
+
+    # Return invoice => payment harus negatif
+    grand_total = -abs(flt(doc.grand_total))
+
+    source_map = {
+        p.mode_of_payment: flt(p.amount)
+        for p in source.payments
+    }
+
+    running_total = 0
+
+    for i, row in enumerate(doc.payments, 1):
+        source_amount = source_map.get(row.mode_of_payment, 0)
+
+        if i == len(doc.payments):
+            amount = grand_total - running_total
+        else:
+            amount = flt(grand_total * source_amount / total_paid, 2)
+            running_total += amount
+
+        row.amount = amount
+        row.base_amount = amount

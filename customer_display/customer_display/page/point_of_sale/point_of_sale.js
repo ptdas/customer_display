@@ -1127,22 +1127,33 @@ async function sync_grosir_ui_from_doc(frm) {
     }
 }
 
-async function reset_item_selector_price_context() {
-    if (!cur_pos) return;
+let pos_item_selector_initialized = false;
+async function refresh_pos_item_selector() {
+    if (!window.cur_pos?.item_selector) return;
 
-    cur_pos.item_prices = {};
-    cur_pos.items = {};
-    cur_pos.items_by_group = {};
+    const selector = cur_pos.item_selector;
 
-    if (cur_pos.item_selector) {
-        const selector = cur_pos.item_selector;
+    selector.items = [];
+    selector.search_index = {};
+    selector.item_group = selector.parent_item_group;
 
-        selector.items = [];
-        selector.search_index = {};
-        selector.item_group = selector.parent_item_group;
+    await selector.load_items_data();
+    selector.render_item_list(selector.items);
+}
 
-        await selector.load_items_data();
-    }
+async function refresh_pos_item_selector() {
+    if (!window.cur_pos?.item_selector) return;
+
+    const selector = cur_pos.item_selector;
+
+    selector.items = [];
+    selector.search_index = {};
+    selector.item_group = selector.parent_item_group;
+
+    await selector.load_items_data();
+
+    // render ulang item yang tampil
+    selector.render_item_list(selector.items);
 }
 
 frappe.ui.form.on("POS Invoice", {
@@ -1152,5 +1163,22 @@ frappe.ui.form.on("POS Invoice", {
     },
     refresh(frm) {
         sync_grosir_ui_from_doc(frm);
+
+        // Saat POS kembali ke New Order (invoice baru),
+        // reload ulang cache item agar stock terbaru tampil
+        // Lewati refresh pertama saat POS baru dibuka
+        if (!pos_item_selector_initialized) {
+            pos_item_selector_initialized = true;
+            return;
+        }
+
+        // Hanya saat invoice baru (New Order)
+        if (frm.is_new()) {
+            setTimeout(() => {
+                refresh_pos_item_selector();
+            }, 300);
+        }
     }
 });
+
+

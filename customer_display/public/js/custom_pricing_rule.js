@@ -55,8 +55,18 @@ frappe.ui.form.on('Pricing Rule', {
                     }
                 });
         }
+    },
+    refresh(frm) {
+        if (!frm.doc.name || frm.is_new()) return;
+
+        frm.add_custom_button(__("Report Item Impact"), function () {
+            const url = `/app/query-report/Pricing%20Rule%20Item%20Impact?pricing_rule=${encodeURIComponent(frm.doc.name)}`;
+
+            window.open(url, "_blank");
+        });
     }
 });
+
 
 function set_item_query(frm) {
     frm.fields_dict.items.grid.get_field('item_code').get_query = function () {

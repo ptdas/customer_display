@@ -68,8 +68,10 @@ def create_stock_entry_for_zero_stock(item, warehouse, company):
 
 
 @frappe.whitelist()
-def debug_split():
-	split_pos_invoice(frappe.get_doc("POS Invoice","BJM26A120007"),"validate")
+def debug_stock():
+	# split_pos_invoice(frappe.get_doc("POS Invoice","BJM26A120007"),"validate")
+    test = get_stock_availability("8993883950482", "TOKO - A")
+    print(test)
 
 def apply_custom_charge_to_pos_invoice(doc, method=None):
     pos = doc  
@@ -206,9 +208,17 @@ def split_pos_invoice(doc, method):
                         },
                         "name"
                     )
+                    if not template_name:
+                        frappe.throw(
+                            f"Sales Taxes and Charges Template tidak ditemukan untuk Company <b>{company}</b> dengan Title <b>{title}</b>.<br>"
+                            f"Template asal POS: <b>{pos.taxes_and_charges}</b>"
+                        )
+
                     stc_doc = frappe.get_doc("Sales Taxes and Charges Template", template_name)
+
                     account_head = None
                     cost_center = None
+
                     for row in stc_doc.taxes:
                         if row.charge_type == tax.charge_type and row.description == tax.description:
                             account_head = row.account_head
@@ -724,6 +734,13 @@ def create_return_si(original_si, item_code, qty, pos_return):
 
     ori_item = next(i for i in ori.items if i.item_code == item_code)
 
+    print("=== RETURN SI DEBUG ===")
+    print("NEW SI DEBIT TO :", si.debit_to)
+    print("RETURN AGAINST  :", si.return_against)
+
+    orig = frappe.get_doc("Sales Invoice", si.return_against)
+    print("ORIG SI DEBIT TO:", orig.debit_to)
+
     si.append("items", {
         "item_code": item_code,
         "qty": -qty,
@@ -746,3 +763,32 @@ def test():
     doc = frappe.get_doc("POS Invoice", "RBJB26A260001")
 	
     handle_pos_return(doc,None)
+
+
+@frappe.whitelist()
+@frappe.validate_and_sanitize_search_inputs
+def pos_profile_query_bjb_bjm(doctype, txt, searchfield, start, page_len, filters):
+    user = frappe.session.user
+    company = filters.get("company") if filters else None
+
+    companies = [company] if company else ["BJB", "BJM"]
+
+    return frappe.db.sql(
+        """
+        select p.name
+        from `tabPOS Profile` p
+        inner join `tabPOS Profile User` u on u.parent = p.name
+        where u.user = %(user)s
+          and p.company in %(companies)s
+          and p.name like %(txt)s
+        order by p.name
+        limit %(start)s, %(page_len)s
+        """,
+        {
+            "user": user,
+            "companies": tuple(companies),
+            "txt": f"%{txt}%",
+            "start": start,
+            "page_len": page_len,
+        },
+    )

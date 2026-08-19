@@ -24,11 +24,17 @@ frappe.query_reports["Bantuan Pencarian Barang"] = {
         {
             fieldname: "company",
             label: "Company",
-            fieldtype: "Select",
-            options: "\nBJB\nBJM",  
-            default: "",
+            fieldtype: "Link",
+            options: "Company",
             onchange: function () {
                 frappe.query_report.refresh();
+            },
+            get_query: function () {
+                return {
+                    filters: {
+                        name: ["in", ["BJM", "BJB"]]
+                    }
+                };
             }
         }
     ],

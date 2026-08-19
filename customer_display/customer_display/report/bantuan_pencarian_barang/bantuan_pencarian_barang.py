@@ -134,29 +134,83 @@ def get_company_hierarchy(parents):
     return list(all_companies)
 
 
+# def get_columns(price_lists=None):
+#     columns = [
+#         {"label": "Item Code", "fieldname": "item_code", "fieldtype": "Link", "options": "Item", "width": 120},
+#         {"label": "Item Name", "fieldname": "item_name", "fieldtype": "Data", "width": 200},
+#         {"label": "Company", "fieldname": "company", "fieldtype": "Data", "width": 160},
+#         {"label": "Brand", "fieldname": "brand", "fieldtype": "Data", "width": 120},
+#         {"label": "Vendor", "fieldname": "vendor", "fieldtype": "Data", "width": 150},
+#         {"label": "Qty Toko", "fieldname": "qty_toko", "fieldtype": "Float", "width": 90},
+#         {"label": "Qty Gudang", "fieldname": "qty_gudang", "fieldtype": "Float", "width": 110},
+#     ]
+#     if price_lists:
+#         for pl in price_lists:
+#             fieldname = f"pl_{pl.lower().replace(' ', '_')}"
+#             columns.append({"label": f"PL {pl}", "fieldname": fieldname, "fieldtype": "Currency", "width": 120})
+
+#     columns += [
+#         {"label": "COGS", "fieldname": "cogs", "fieldtype": "Currency", "width": 100},
+#         {"label": "LCV", "fieldname": "lcv", "fieldtype": "Currency", "width": 100},
+#         {"label": "PPN", "fieldname": "ppn", "fieldtype": "Currency", "width": 100},
+#         {"label": "COGS + LCV", "fieldname": "cogs_lcv", "fieldtype": "Currency", "width": 120},
+#         {"label": "COGS + LCV + PPN", "fieldname": "cogs_lcv_ppn", "fieldtype": "Currency", "width": 150},
+#         {"label": "Last Invoice", "fieldname": "last_invoice", "fieldtype": "Link", "options": "Purchase Invoice", "width": 120},  
+#     ]
+#     return columns
+
 def get_columns(price_lists=None):
     columns = [
         {"label": "Item Code", "fieldname": "item_code", "fieldtype": "Link", "options": "Item", "width": 120},
         {"label": "Item Name", "fieldname": "item_name", "fieldtype": "Data", "width": 200},
-        {"label": "Company", "fieldname": "company", "fieldtype": "Data", "width": 160},
-        {"label": "Brand", "fieldname": "brand", "fieldtype": "Data", "width": 120},
-        {"label": "Vendor", "fieldname": "vendor", "fieldtype": "Data", "width": 150},
+
         {"label": "Qty Toko", "fieldname": "qty_toko", "fieldtype": "Float", "width": 90},
         {"label": "Qty Gudang", "fieldname": "qty_gudang", "fieldtype": "Float", "width": 110},
+
+        {"label": "COGS", "fieldname": "cogs", "fieldtype": "Currency", "width": 100},
+        {"label": "COGS + LCV + PPN", "fieldname": "cogs_lcv_ppn", "fieldtype": "Currency", "width": 150},
     ]
+
+    # Urutan Price List sesuai permintaan (tanpa HET)
     if price_lists:
-        for pl in price_lists:
-            fieldname = f"pl_{pl.lower().replace(' ', '_')}"
-            columns.append({"label": f"PL {pl}", "fieldname": fieldname, "fieldtype": "Currency", "width": 120})
+        price_list_order = [
+            "Retail",
+            "Grosir",
+            "Marketplace"
+        ]
+
+        for pl in price_list_order:
+            if pl in price_lists:
+                fieldname = f"pl_{pl.lower().replace(' ', '_')}"
+                columns.append({
+                    "label": f"PL {pl}",
+                    "fieldname": fieldname,
+                    "fieldtype": "Currency",
+                    "width": 120
+                })
 
     columns += [
-        {"label": "COGS", "fieldname": "cogs", "fieldtype": "Currency", "width": 100},
         {"label": "LCV", "fieldname": "lcv", "fieldtype": "Currency", "width": 100},
         {"label": "PPN", "fieldname": "ppn", "fieldtype": "Currency", "width": 100},
         {"label": "COGS + LCV", "fieldname": "cogs_lcv", "fieldtype": "Currency", "width": 120},
-        {"label": "COGS + LCV + PPN", "fieldname": "cogs_lcv_ppn", "fieldtype": "Currency", "width": 150},
-        {"label": "Last Invoice", "fieldname": "last_invoice", "fieldtype": "Link", "options": "Purchase Invoice", "width": 120},  
+
+        {"label": "Brand", "fieldname": "brand", "fieldtype": "Data", "width": 120},
+        {"label": "Vendor", "fieldname": "vendor", "fieldtype": "Data", "width": 150},
+
+        {"label": "Last Invoice", "fieldname": "last_invoice", "fieldtype": "Link", "options": "Purchase Invoice", "width": 120},
+
+        {"label": "Company", "fieldname": "company", "fieldtype": "Data", "width": 160},
     ]
+
+    # PL HET paling akhir
+    if price_lists and "HET" in price_lists:
+        columns.append({
+            "label": "PL HET",
+            "fieldname": "pl_het",
+            "fieldtype": "Currency",
+            "width": 120
+        })
+
     return columns
 
 def get_item_bin_info(item_code, company=None):

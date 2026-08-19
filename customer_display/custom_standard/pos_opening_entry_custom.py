@@ -42,10 +42,26 @@ def get_tutup_kasir(self):
 	doc = self
 
 	online_partai = online = total_online = kas_awal = jual_cash = jual_card = voucher = jumlah_jual = retur_cash = retur_card = discount_item = discount_nota = total_jual = kas_akhir = point_jual = point_retur = total_point = member_free = member_non_free = biaya_member = total_kas_akhir = pinjaman = total = uang_charge_kredit = total_tutup = 0
+	# try:
+	# 	if len(doc.taxes)>0:
+	# 		uang_charge_kredit = doc.taxes[0].amount
+	# except:
+	# 	pass
+
+	uang_charge_kredit = 0
+
 	try:
-		if len(doc.taxes)>0:
-			uang_charge_kredit = doc.taxes[0].amount
-	except:
+		pos_charge_account = frappe.get_single("AXTRA Settings").pos_charge_account
+		account_prefix = pos_charge_account.split(" - ")[0]
+
+		for satu_pos in doc.pos_transactions:
+			pos_doc = frappe.get_doc("POS Invoice", satu_pos.pos_invoice)
+
+			for tax in pos_doc.taxes:
+				if tax.account_head and tax.account_head.startswith(account_prefix):
+					uang_charge_kredit += flt(tax.tax_amount)
+
+	except Exception:
 		pass
 
 	for row in doc.payment_reconciliation:
@@ -66,7 +82,8 @@ def get_tutup_kasir(self):
 					online = online + row.base_amount
 
 	total_online = online_partai + online
-	jumlah_jual = jual_cash  + jual_card - uang_charge_kredit
+	# jumlah_jual = jual_cash  + jual_card - uang_charge_kredit
+	jumlah_jual = jual_cash  + jual_card 
 
 	customer_array = []
 
@@ -93,15 +110,28 @@ def get_tutup_kasir(self):
 			as_dict=True
 		)
 
-		if row.is_return == 1:
-			retur_doc = frappe.get_doc("POS Invoice", row.pos_invoice)
-			asli_doc = frappe.get_doc("POS Invoice", retur_doc.return_against)
-			for satu_payment in asli_doc.get("payments"):
+		# if row.is_return == 1:
+		# 	retur_doc = frappe.get_doc("POS Invoice", row.pos_invoice)
+		# 	asli_doc = frappe.get_doc("POS Invoice", retur_doc.return_against)
+		# 	for satu_payment in asli_doc.get("payments"):
+		# 		if satu_payment.base_amount:
+		# 			if satu_payment.mode_of_payment == "Cash":
+		# 				retur_cash = retur_cash + (row.grand_total * -1)
+		# 			else:
+		# 				retur_card = retur_card + (row.grand_total * -1)
+
+		if pos_invoice.is_return == 1:
+			for satu_payment in pos_invoice.get("payments"):
 				if satu_payment.base_amount:
-					if satu_payment.mode_of_payment == "Cash":
-						retur_cash = retur_cash + (row.grand_total * -1)
-					else:
-						retur_card = retur_card + (row.grand_total * -1)
+					mop_doc = frappe.get_doc(
+						"Mode of Payment",
+						satu_payment.mode_of_payment
+					)
+
+					if mop_doc.custom_mop_type == "Cash":
+						retur_cash += abs(flt(satu_payment.base_amount))
+					elif mop_doc.custom_mop_type == "Bank":
+						retur_card += abs(flt(satu_payment.base_amount))
 
 
 		if sales_invoice:
@@ -166,7 +196,7 @@ def get_tutup_kasir(self):
 
 	total = kas_akhir - pinjaman
 
-	total_tutup = total - uang_charge_kredit
+	total_tutup = total 
 	print(str([kas_awal, online_partai, online, total_online, jual_cash, jual_card, voucher, jumlah_jual, retur_cash, retur_card, discount_item, discount_nota, total_jual, kas_akhir, point_jual, point_retur, total_point, member_free, member_non_free, biaya_member, total_kas_akhir, pinjaman, total, uang_charge_kredit, total_tutup]))
 	return [kas_awal, online_partai, online, total_online, jual_cash, jual_card, voucher, jumlah_jual, retur_cash, retur_card, discount_item, discount_nota, total_jual, kas_akhir, point_jual, point_retur, total_point, member_free, member_non_free, biaya_member, total_kas_akhir, pinjaman, total, uang_charge_kredit, total_tutup, total_change]
 
@@ -243,8 +273,24 @@ def ambil_return_usage(self,method):
 
 @frappe.whitelist()
 def debug():
-	doc = frappe.get_doc("POS Closing Entry", "POS-CLO-2026-00010")
-	ambil_return_usage(doc,"validate")
+	doc = frappe.get_doc("POS Closing Entry", "POS-CLO-2026-00086")
+	get_tutup_kasir(doc)
+	# doc = frappe.get_doc("POS Closing Entry", "POS-CLO-2026-00043")
+
+	# print("=== POS TRANSACTIONS ===")
+	# for row in doc.pos_transactions:
+	# 	print(row.pos_invoice)
+
+	# print("\n=== POS CLOSING TAXES ===")
+	# for tax in doc.taxes:
+	# 	print( tax.account_head, tax.amount)
+
+	# print("\n=== EACH POS INVOICE TAXES ===")
+	# for row in doc.pos_transactions:
+	# 	pinv = frappe.get_doc("POS Invoice", row.pos_invoice)
+	# 	print(f"\n{pinv.name}")
+	# 	for tax in pinv.taxes:
+	# 		print("  ",  tax.account_head, tax.tax_amount)
 
 @frappe.whitelist()
 def get_pos_invoices(start, end, pos_profile, user):

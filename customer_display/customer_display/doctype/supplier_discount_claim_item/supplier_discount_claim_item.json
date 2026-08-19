@@ -1,0 +1,138 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-08-15 10:55:54.637617",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "no_nota",
+  "customer",
+  "nama_customer",
+  "nama_user_penjual",
+  "nama_createor",
+  "pricing_rule",
+  "brand",
+  "tanggal",
+  "item_code",
+  "item_name",
+  "qty",
+  "price_list",
+  "harga_jual",
+  "diskon",
+  "jumlah",
+  "sales_invoice_item"
+ ],
+ "fields": [
+  {
+   "fieldname": "no_nota",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "No Nota",
+   "options": "Sales Invoice"
+  },
+  {
+   "fieldname": "tanggal",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Tanggal"
+  },
+  {
+   "fieldname": "item_code",
+   "fieldtype": "Link",
+   "label": "Kode Barang",
+   "options": "Item"
+  },
+  {
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Nama Barang"
+  },
+  {
+   "fieldname": "qty",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "qty"
+  },
+  {
+   "fieldname": "harga_jual",
+   "fieldtype": "Float",
+   "label": "Harga Jual"
+  },
+  {
+   "fieldname": "jumlah",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Jumlah"
+  },
+  {
+   "fieldname": "pricing_rule",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Pricing Rule",
+   "options": "Pricing Rule"
+  },
+  {
+   "fieldname": "brand",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Brand",
+   "options": "Brand"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "diskon",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Diskon"
+  },
+  {
+   "fieldname": "sales_invoice_item",
+   "fieldtype": "Data",
+   "label": "Sales Invoice Item"
+  },
+  {
+   "fieldname": "price_list",
+   "fieldtype": "Link",
+   "label": "Price List",
+   "options": "Price List"
+  },
+  {
+   "fieldname": "nama_customer",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Nama Customer"
+  },
+  {
+   "fieldname": "nama_user_penjual",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Nama User Penjual"
+  },
+  {
+   "fieldname": "nama_createor",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Nama Createor "
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-15 15:32:50.160193",
+ "modified_by": "Administrator",
+ "module": "Customer Display",
+ "name": "Supplier Discount Claim Item",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

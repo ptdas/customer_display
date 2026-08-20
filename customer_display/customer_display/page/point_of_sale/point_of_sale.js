@@ -95,6 +95,10 @@ frappe.pages["point-of-sale"].on_page_load = function (wrapper) {
                     });
                 }
             });
+            
+            if (cur_frm && cur_frm.doctype === "POS Invoice") {
+                sync_marketplace_resi(cur_frm);
+            }
         });
 		/////////
 
@@ -511,7 +515,93 @@ function add_custom_pos_container(callback) {
 
                     </div>
                 </div>
+
+               <!-- RESI MARKETPLACE -->
+                <div
+                    id="pos-resi-section"
+                    class="form-group"
+                    style="display:none; margin-bottom:1px; margin-top:8px;"
+                >
+                    <div id="resi-picker">
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="pos-resi"
+                            placeholder="Resi Marketplace"
+                        >
+                    </div>
+
+                    <div id="resi-details" style="display:none;"></div>
+                </div>
             `);
+
+            window.pos_custom_resi = null;
+
+            function render_resi_details(resi) {
+                $('#resi-picker').hide();
+
+                $('#resi-details')
+                    .html(`
+                        <div class="resi-details">
+                            <div
+                                class="resi-display"
+                                style="
+                                    display:flex;
+                                    align-items:center;
+                                    justify-content:space-between;
+                                    padding:8px 0;
+                                "
+                            >
+                                <div style="flex:1;">
+                                    <div class="resi-name">
+                                        ${frappe.utils.escape_html(resi)}
+                                    </div>
+                                </div>
+
+                                <div
+                                    class="reset-resi-btn"
+                                    style="cursor:pointer;"
+                                >
+                                    <svg width="32" height="32" viewBox="0 0 14 14" fill="none">
+                                        <path
+                                            d="M4.93764 4.93759L7.00003 6.99998M9.06243 9.06238L7.00003 6.99998M7.00003 6.99998L4.93764 9.06238L9.06243 4.93759"
+                                            stroke="#8D99A6"
+                                        ></path>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                    `)
+                    .show();
+            }
+
+            $('#pos-resi').on('change', function() {
+                const resi = $(this).val().trim();
+
+                if (!resi) {
+                    return;
+                }
+
+                window.pos_custom_resi = resi;
+
+                if (window.cur_frm && cur_frm.doctype === "POS Invoice") {
+                    cur_frm.set_value("custom_resi_marketplace", resi);
+                }
+
+                render_resi_details(resi);
+            });
+
+            $(document).on('click', '#resi-details .reset-resi-btn', function() {
+                window.pos_custom_resi = null;
+
+                if (window.cur_frm && cur_frm.doctype === "POS Invoice") {
+                    cur_frm.set_value("custom_resi_marketplace", "");
+                }
+
+                $('#resi-details').hide().empty();
+                $('#resi-picker').show();
+                $('#pos-resi').val('');
+            });
 
             window.pos_spg_control = frappe.ui.form.make_control({
                 parent: $('#spg-picker'),
@@ -1098,6 +1188,98 @@ function inject_pos_hide_net_and_tax_css() {
 
 })();
 
+function sync_marketplace_resi(frm) {
+    if (!frm || frm.doctype !== "POS Invoice") return;
+
+    const customer = frm.doc.customer;
+
+    const is_marketplace =
+        customer === "Shopee Market Place" ||
+        customer === "TikTok Marketplace";
+
+    const section = $('#pos-resi-section');
+
+    // POS masih render ulang → tunggu sampai container tersedia
+    if (!section.length) {
+        setTimeout(() => {
+            sync_marketplace_resi(frm);
+        }, 200);
+        return;
+    }
+
+    if (!is_marketplace) {
+        section.hide();
+
+        // kosongkan state JS
+        window.pos_custom_resi = null;
+
+        // kosongkan UI
+        $('#resi-details').hide().empty();
+        $('#resi-picker').show();
+        $('#pos-resi').val('');
+
+        // kosongkan field invoice
+        if (frm.doc.custom_resi_marketplace) {
+            frm.set_value("custom_resi_marketplace", "");
+        }
+
+        return;
+    }
+
+    section.show();
+
+    const resi = (frm.doc.custom_resi_marketplace || "").trim();
+
+    if (!resi) {
+        window.pos_custom_resi = null;
+
+        $('#resi-details').hide().empty();
+        $('#resi-picker').show();
+        $('#pos-resi').val('');
+
+        return;
+    }
+
+    window.pos_custom_resi = resi;
+
+    $('#resi-picker').hide();
+
+    $('#resi-details')
+        .html(`
+            <div class="resi-details">
+                <div
+                    class="resi-display"
+                    style="
+                        display:flex;
+                        align-items:center;
+                        justify-content:space-between;
+                        padding:8px 0;
+                    "
+                >
+                    <div style="flex:1;">
+                        <div class="resi-name">
+                            ${frappe.utils.escape_html(resi)}
+                        </div>
+                    </div>
+
+                    <div
+                        class="reset-resi-btn"
+                        style="cursor:pointer;"
+                        title="Ganti Resi"
+                    >
+                        <svg width="32" height="32" viewBox="0 0 14 14" fill="none">
+                            <path
+                                d="M4.93764 4.93759L7.00003 6.99998M9.06243 9.06238L7.00003 6.99998M7.00003 6.99998L4.93764 9.06238L9.06243 4.93759"
+                                stroke="#8D99A6"
+                            ></path>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        `)
+        .show();
+}
+
 
 async function sync_grosir_ui_from_doc(frm) {
     const is_grosir = cint(frm.doc.custom_is_grosir_mode) === 1;
@@ -1158,11 +1340,24 @@ async function refresh_pos_item_selector() {
 
 frappe.ui.form.on("POS Invoice", {
     //agar setelah new order bisa balik tombolnya
+    customer(frm) {
+        setTimeout(() => {
+            sync_marketplace_resi(frm);
+        }, 300);
+    },
     onload(frm) {
         sync_grosir_ui_from_doc(frm);
+
+        setTimeout(() => {
+            sync_marketplace_resi(frm);
+        }, 300);
     },
     refresh(frm) {
         sync_grosir_ui_from_doc(frm);
+
+        setTimeout(() => {
+            sync_marketplace_resi(frm);
+        }, 300);
 
         // Saat POS kembali ke New Order (invoice baru),
         // reload ulang cache item agar stock terbaru tampil

@@ -54,11 +54,18 @@ async function auto_set_company_from_supplier_by_user(frm) {
 
         let company_group = null;
 
+        // if (emp_branch.toUpperCase().includes("BANJARMASIN")) {
+        //     company_group = "BJB";
+        // }
+        // else if (emp_branch.toUpperCase().includes("BANJARBARU")) {
+        //     company_group = "BJM";
+        // }
+
         if (emp_branch.toUpperCase().includes("BANJARMASIN")) {
-            company_group = "BJB";
+            company_group = "BJM";
         }
         else if (emp_branch.toUpperCase().includes("BANJARBARU")) {
-            company_group = "BJM";
+            company_group = "BJB";
         }
 
         // console.log("Mapped Company Group:", company_group);

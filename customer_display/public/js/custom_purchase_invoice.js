@@ -45,6 +45,61 @@ function calculate_custom_price(frm, cdt, cdn) {
 	);
 }
 
+function set_axtra_expense_account(frm, row = null) {
+	console.log("set_axtra_expense_account called", {
+		company: frm.doc.company,
+		row: row
+	});
+
+	if (!frm.doc.company) {
+		frappe.msgprint("Company belum diisi");
+		return;
+	}
+
+	const rows = row
+		? [row]
+		: (frm.doc.custom_landed_cost_taxes_and_charges || []);
+
+	rows.forEach(row => {
+		const current_account = row.expense_account || null;
+
+		console.log("Processing row:", {
+			row: row.name,
+			current_account: current_account
+		});
+
+		frappe.call({
+			method: "customer_display.custom_standard.purchase_invoice_custom.get_axtra_biaya_angkut_account",
+			args: {
+				company: frm.doc.company,
+				current_account: current_account
+			},
+			callback(r) {
+				console.log("AXTRA Expense Account Response:", r);
+
+				if (!r.message) {
+					return;
+				}
+
+				console.log(
+					"Set expense_account:",
+					row.name,
+					"->",
+					r.message
+				);
+
+				frappe.model.set_value(
+					row.doctype,
+					row.name,
+					"expense_account",
+					r.message
+				);
+			}
+		});
+	});
+
+	frm.refresh_field("custom_landed_cost_taxes_and_charges");
+}
 
 frappe.ui.form.on("Purchase Invoice", {
 	onload: function(frm) {
@@ -72,6 +127,9 @@ frappe.ui.form.on("Purchase Invoice", {
 	custom_distribute_charges_based_on(frm) {
 		toggle_manual_distribution(frm);
 		set_applicable_charges_for_item(frm);
+	},
+	company(frm){
+		set_axtra_expense_account(frm);
 	},
 	refresh(frm){
 
@@ -228,6 +286,17 @@ frappe.ui.form.on("PINV LCV Taxes and Charges", {
 
 		set_total_taxes_and_charges(frm);
 		set_applicable_charges_for_item(frm);
+	},
+	custom_landed_cost_taxes_and_charges_add(frm, cdt, cdn) {
+		console.log("=== CHILD ADD TRIGGERED ===");
+		console.log("cdt:", cdt);
+		console.log("cdn:", cdn);
+
+		let row = locals[cdt][cdn];
+
+		console.log("row:", row);
+
+		set_axtra_expense_account(frm, row);
 	},
 });
 

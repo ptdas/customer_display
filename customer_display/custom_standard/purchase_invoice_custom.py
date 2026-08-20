@@ -834,3 +834,67 @@ def set_expense_account_from_item(doc, method):
 
         if frappe.db.exists("Account", new_account):
             row.expense_account = new_account
+
+
+@frappe.whitelist()
+def get_axtra_biaya_angkut_account(company, current_account=None):
+    if not company:
+        frappe.throw("Company belum diisi.")
+
+    company_abbr = frappe.db.get_value(
+        "Company",
+        company,
+        "abbr"
+    )
+
+    if not company_abbr:
+        frappe.throw(
+            f"Abbreviation untuk Company {company} tidak ditemukan."
+        )
+
+    if current_account:
+        base_name = current_account.rsplit(" - ", 1)[0]
+        target_account_name = f"{base_name} - {company_abbr}"
+
+    else:
+        coa_biaya_angkut = frappe.db.get_single_value(
+            "AXTRA Settings",
+            "coa_biaya_angkut"
+        )
+
+        if not coa_biaya_angkut:
+            frappe.throw(
+                "Field coa_biaya_angkut pada AXTRA Settings belum diisi."
+            )
+
+        account = frappe.db.get_value(
+            "Account",
+            coa_biaya_angkut,
+            "name"
+        )
+
+        if not account:
+            frappe.throw(
+                f"Account {coa_biaya_angkut} tidak ditemukan."
+            )
+
+        base_name = account.rsplit(" - ", 1)[0]
+        target_account_name = f"{base_name} - {company_abbr}"
+
+    target_account = frappe.db.get_value(
+        "Account",
+        {
+            "name": target_account_name,
+            "company": company,
+            "is_group": 0
+        },
+        "name"
+    )
+
+    if not target_account:
+        frappe.throw(
+            f"Account {target_account_name} tidak ditemukan "
+            f"untuk Company {company}."
+        )
+
+    return target_account

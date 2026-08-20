@@ -21,6 +21,7 @@
   "default_target_pitza_company_bjm",
   "axtra_tab",
   "axtra_tax_coa",
+  "coa_biaya_angkut",
   "lcv_tab",
   "item_forwarder",
   "tab_5_tab",
@@ -163,12 +164,18 @@
    "fieldtype": "Link",
    "label": "Allowed Tab Moved",
    "options": "Role"
+  },
+  {
+   "fieldname": "coa_biaya_angkut",
+   "fieldtype": "Link",
+   "label": "COA Biaya Angkut",
+   "options": "Account"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-02-06 16:03:00.629629",
+ "modified": "2026-08-20 09:33:34.416568",
  "modified_by": "Administrator",
  "module": "Customer Display",
  "name": "AXTRA Settings",

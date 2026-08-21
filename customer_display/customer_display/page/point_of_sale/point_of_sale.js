@@ -1338,19 +1338,68 @@ async function refresh_pos_item_selector() {
     selector.render_item_list(selector.items);
 }
 
+async function set_b2b_default_from_pos_profile(frm) {
+    if (!frm || frm.doctype !== "POS Invoice") return;
+    if (!frm.is_new()) return;
+
+    const pos_profile = frm.doc.pos_profile;
+    if (!pos_profile) return;
+
+    try {
+        const r = await frappe.db.get_value(
+            "POS Profile",
+            pos_profile,
+            ["custom_is_b2b", "custom_alamat_b2b"]
+        );
+
+        if (!r.message) return;
+
+        const is_b2b = cint(r.message.custom_is_b2b) === 1;
+        const alamat_b2b = r.message.custom_alamat_b2b || "";
+
+        await frm.set_value("custom_is_b2b", is_b2b ? 1 : 0);
+        await frm.set_value("custom_alamat_b2b", alamat_b2b);
+
+        $('#b2b-checkbox').prop('checked', is_b2b);
+
+        if (is_b2b) {
+            $('#b2b-fields').show();
+            $('#b2b-address').val(alamat_b2b);
+        } else {
+            $('#b2b-fields').hide();
+            $('#b2b-address').val('');
+            $('#invoice-checkbox').prop('checked', false);
+        }
+
+        console.log("B2B DEFAULT FROM POS PROFILE:", {
+            pos_profile: pos_profile,
+            is_b2b: is_b2b,
+            alamat_b2b: alamat_b2b
+        });
+
+    } catch (err) {
+        console.error("Gagal mengambil default B2B dari POS Profile:", err);
+    }
+}
+
 frappe.ui.form.on("POS Invoice", {
-    //agar setelah new order bisa balik tombolnya
     customer(frm) {
         setTimeout(() => {
             sync_marketplace_resi(frm);
         }, 300);
     },
+
     onload(frm) {
         sync_grosir_ui_from_doc(frm);
 
         setTimeout(() => {
             sync_marketplace_resi(frm);
         }, 300);
+
+        // Default B2B dari POS Profile
+        setTimeout(() => {
+            set_b2b_default_from_pos_profile(frm);
+        }, 500);
     },
     refresh(frm) {
         sync_grosir_ui_from_doc(frm);

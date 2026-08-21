@@ -6,6 +6,8 @@ from frappe.model.document import Document
 from frappe.utils import today
 import json
 
+from customer_display.vendor_company import get_vendor_company
+
 class StockMovementInter(Document):
 
     def on_submit(self):
@@ -209,10 +211,8 @@ def get_vendor_company_and_default_warehouse(item_code, parent_company, input_wa
         return {}
 
     company = None
-    if parent_company == "BJB":
-        company = frappe.db.get_value("Supplier", vendor, "custom_vendor_company")
-    elif parent_company == "BJM":
-        company = frappe.db.get_value("Supplier", vendor, "custom_vendor_company_bjm")
+    if parent_company in ("BJB", "BJM"):
+        company = get_vendor_company(vendor, parent_company)
 
     if not company:
         return {}

@@ -8,6 +8,11 @@ from collections import defaultdict
 from frappe import _
 import frappe
 
+from customer_display.vendor_company import (
+    get_vendor_company,
+    vendor_company_field,
+)
+
 class StockMovementIntra(Document):
 
     def validate(self):
@@ -30,10 +35,11 @@ class StockMovementIntra(Document):
                     title="Vendor Tidak Ditemukan"
                 )
 
+            vendor_field = vendor_company_field(self.parent_company)
             supplier = frappe.db.get_value(
                 "Supplier",
                 custom_vendor,
-                ["custom_vendor_company", "custom_vendor_company_bjm"],
+                ["name", vendor_field],
                 as_dict=True
             )
 
@@ -43,10 +49,7 @@ class StockMovementIntra(Document):
                     title="Supplier Tidak Valid"
                 )
 
-            if self.parent_company == "BJB":
-                row.child_company = supplier.custom_vendor_company
-            elif self.parent_company == "BJM":
-                row.child_company = supplier.custom_vendor_company_bjm
+            row.child_company = supplier.get(vendor_field)
 
             if not row.child_company:
                 frappe.throw(
@@ -121,12 +124,10 @@ def get_item_company(item_code, company_mode):
 
     supplier = frappe.get_cached_doc("Supplier", item.custom_vendor)
 
-    if company_mode == "BJB":
-        company = supplier.custom_vendor_company
-    elif company_mode == "BJM":
-        company = supplier.custom_vendor_company_bjm
-    else:
+    if company_mode not in ("BJB", "BJM"):
         frappe.throw("Company Mode tidak valid")
+
+    company = get_vendor_company(supplier, company_mode)
 
     if not company:
         frappe.throw(

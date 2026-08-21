@@ -80,7 +80,14 @@ async function auto_set_company_from_supplier_by_user(frm) {
 
         let company_to_set = null;
 
-        if (company_group === "BJB") {
+        // Site hasil pecah cuma punya satu grup dan menyimpannya di
+        // custom_vendor_company; field _bjm sudah tidak ada di sana, jadi
+        // doc-nya pun tidak membawa propertinya. Site gabungan tetap memilih
+        // per sisi seperti biasa.
+        if (!("custom_vendor_company_bjm" in supplier)) {
+            company_to_set = supplier.custom_vendor_company;
+        }
+        else if (company_group === "BJB") {
             company_to_set = supplier.custom_vendor_company;
         }
         else if (company_group === "BJM") {

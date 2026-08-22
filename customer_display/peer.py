@@ -10,7 +10,8 @@ API, dan grup mana yang dipegang site ini. Ini sekaligus mengganti hardcode
     "alan_grup": "BJB",
     "alan_peer": {
         "grup": "BJM",
-        "url": "https://bjm_alan.digitalasiasolusindo.com",
+        "url": "http://127.0.0.1",
+        "host_header": "bjm_alan.digitalasiasolusindo.com",
         "api_key": "...",
         "api_secret": "..."
     }
@@ -18,11 +19,25 @@ API, dan grup mana yang dipegang site ini. Ini sekaligus mengganti hardcode
 Kredensialnya sengaja di site_config, bukan di doctype: nilainya beda per
 site, tidak ikut masuk git, dan tidak terlihat dari UI.
 
-Ada satu kunci tambahan yang boleh diisi, `"verify": false`, untuk melewati
-pemeriksaan sertifikat TLS. Itu **darurat sementara** selagi sertifikat site
-seberang belum benar - kunci API tetap terkirim lewat jaringan, jadi jangan
-ditinggal menyala. Kalau diisi false, tiap panggilan meninggalkan peringatan
-di log supaya tidak terlupakan.
+Dua kunci tambahan yang boleh diisi:
+
+`host_header` - hostname yang dikirim sebagai header `Host`, terpisah dari
+alamat yang benar-benar dihubungi. Ini yang dipakai kalau kedua site duduk di
+mesin yang sama: `url` menunjuk loopback, `host_header` menyebut site tujuan,
+dan nginx memilih site dari header itu (ia meneruskannya ke frappe sebagai
+`X-Frappe-Site-Name`). Lalu lintasnya tidak pernah meninggalkan mesin, jadi
+tidak ada DNS publik, sertifikat, atau perjalanan keluar-masuk internet yang
+perlu benar hanya supaya dua site bertetangga bisa bicara.
+
+`verify: false` - lewati pemeriksaan sertifikat TLS. Hanya masuk akal kalau
+memang harus lewat HTTPS dan sertifikatnya belum benar; kunci API tetap
+terkirim lewat jaringan, jadi tiap panggilan meninggalkan peringatan di log
+supaya tidak ditinggal menyala.
+
+Catatan kalau nanti hostname site dipakai langsung lewat HTTPS: nama seperti
+`bjm_alan.digitalasiasolusindo.com` **tidak** dicakup sertifikat wildcard
+`*.digitalasiasolusindo.com`. Wildcard tidak boleh mencocoki label yang
+mengandung garis bawah, karena itu bukan karakter sah untuk hostname DNS.
 """
 
 import json
@@ -92,6 +107,11 @@ def panggil(metode, **payload):
         "Content-Type": "application/json",
         "Accept": "application/json",
     }
+
+    # Alamat yang dihubungi dan site yang dituju tidak harus sama - lihat
+    # `host_header` di keterangan modul.
+    if peer.get("host_header"):
+        headers["Host"] = peer["host_header"]
 
     verify = peer.get("verify", True)
     if not verify:

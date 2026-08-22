@@ -17,6 +17,12 @@ API, dan grup mana yang dipegang site ini. Ini sekaligus mengganti hardcode
 
 Kredensialnya sengaja di site_config, bukan di doctype: nilainya beda per
 site, tidak ikut masuk git, dan tidak terlihat dari UI.
+
+Ada satu kunci tambahan yang boleh diisi, `"verify": false`, untuk melewati
+pemeriksaan sertifikat TLS. Itu **darurat sementara** selagi sertifikat site
+seberang belum benar - kunci API tetap terkirim lewat jaringan, jadi jangan
+ditinggal menyala. Kalau diisi false, tiap panggilan meninggalkan peringatan
+di log supaya tidak terlupakan.
 """
 
 import json
@@ -87,10 +93,33 @@ def panggil(metode, **payload):
         "Accept": "application/json",
     }
 
+    verify = peer.get("verify", True)
+    if not verify:
+        frappe.logger("peer").warning(
+            "Pemeriksaan sertifikat TLS ke site %s dimatikan lewat alan_peer.verify",
+            peer["grup"],
+        )
+
     try:
         jawaban = requests.post(
-            url, headers=headers, data=json.dumps(payload), timeout=TIMEOUT
+            url,
+            headers=headers,
+            data=json.dumps(payload),
+            timeout=TIMEOUT,
+            verify=verify,
         )
+    except requests.exceptions.SSLError as e:
+        # Dipisah karena sebabnya beda sama sekali dari jaringan putus, dan
+        # obatnya ada di nginx/sertifikat - bukan sesuatu yang membaik sendiri
+        # kalau ditunggu atau diulang.
+        raise PeerTidakTerjangkau(
+            _(
+                "Sertifikat TLS site {0} tidak sah untuk hostname-nya, jadi "
+                "sambungan ditolak sebelum sempat masuk. Perbaiki sertifikat "
+                "site itu (nginx belum tentu punya server block untuk hostname "
+                "baru). Rincian: {1}"
+            ).format(peer["grup"], e)
+        ) from e
     except requests.RequestException as e:
         raise PeerTidakTerjangkau(
             _("Site {0} tidak bisa dihubungi: {1}").format(peer["grup"], e)

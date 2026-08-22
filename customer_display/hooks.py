@@ -361,3 +361,10 @@ override_doctype_class = {
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
 
+
+
+# Kiriman lintas site yang belum sampai ke seberang - lihat
+# customer_display/peer.py
+scheduler_events = {
+	"hourly": ["customer_display.customer_display.doctype.stock_movement_inter.stock_movement_inter.sapu_belum_terkirim"],
+}

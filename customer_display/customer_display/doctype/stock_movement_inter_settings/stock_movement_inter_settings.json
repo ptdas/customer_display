@@ -21,10 +21,10 @@
   },
   {
    "fieldname": "dikirim_ke",
-   "fieldtype": "Link",
+   "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Dikirim Ke",
-   "options": "Company"
+   "description": "Company penerima, bisa milik site seberang"
   },
   {
    "fieldname": "supplier_pinv",
@@ -35,16 +35,16 @@
   },
   {
    "fieldname": "dikirim_dari",
-   "fieldtype": "Link",
+   "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Dikirim Dari",
-   "options": "Company"
+   "description": "Company pengirim (nama apa adanya)"
   }
  ],
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-01-30 15:47:29.802336",
+ "modified": "2026-08-23 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Customer Display",
  "name": "Stock Movement Inter Settings",

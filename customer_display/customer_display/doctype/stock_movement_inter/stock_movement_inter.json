@@ -18,7 +18,12 @@
   "section_break_evkz",
   "items",
   "amended_from",
-  "amended_from"
+  "sb_kiriman",
+  "status",
+  "dikirim_pada",
+  "cb_kiriman",
+  "peer_site",
+  "pesan_terakhir"
  ],
  "fields": [
   {
@@ -37,15 +42,16 @@
    "fieldname": "source_company",
    "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "Source Company",
-   "options": "Company"
+   "label": "Grup Asal",
+   "options": "Company",
+   "read_only": 1
   },
   {
    "fieldname": "target_company",
-   "fieldtype": "Link",
+   "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Target Company",
-   "options": "Company"
+   "label": "Grup Tujuan",
+   "read_only": 1
   },
   {
    "fieldname": "column_break_rnko",
@@ -59,9 +65,9 @@
   },
   {
    "fieldname": "to_warehouse",
-   "fieldtype": "Link",
-   "label": "To Warehouse",
-   "options": "Warehouse"
+   "fieldtype": "Autocomplete",
+   "label": "Gudang Tujuan (site seberang)",
+   "description": "Nama gudang di site tujuan"
   },
   {
    "fieldname": "section_break_evkz",
@@ -83,8 +89,9 @@
    "hidden": 1,
    "label": "Series",
    "no_copy": 1,
-   "options": "MAT-STE-.YYYY.-",
-   "set_only_once": 1
+   "options": "STI-BJB-.YYYY.-\nSTI-BJM-.YYYY.-\nMAT-STE-.YYYY.-",
+   "set_only_once": 1,
+   "read_only": 1
   },
   {
    "fieldname": "amended_from",
@@ -97,20 +104,54 @@
    "search_index": 1
   },
   {
-   "fieldname": "amended_from",
-   "fieldtype": "Link",
-   "label": "Amended From",
-   "no_copy": 1,
-   "options": "Stock Movement Inter",
-   "print_hide": 1,
+   "fieldname": "sb_kiriman",
+   "fieldtype": "Section Break",
+   "label": "Kiriman ke Site Tujuan"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status Kiriman",
+   "options": "Belum Terkirim\nTerkirim\nGagal Kirim",
+   "default": "Belum Terkirim",
    "read_only": 1,
-   "search_index": 1
+   "allow_on_submit": 1,
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "dikirim_pada",
+   "fieldtype": "Datetime",
+   "label": "Dikirim Pada",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "cb_kiriman",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "peer_site",
+   "fieldtype": "Data",
+   "label": "Site Tujuan",
+   "read_only": 1,
+   "no_copy": 1
+  },
+  {
+   "fieldname": "pesan_terakhir",
+   "fieldtype": "Small Text",
+   "label": "Pesan Terakhir",
+   "read_only": 1,
+   "allow_on_submit": 1,
+   "no_copy": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-02-02 13:23:56.615715",
+ "modified": "2026-08-23 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Customer Display",
  "name": "Stock Movement Inter",

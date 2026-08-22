@@ -84,8 +84,7 @@
   "amended_from",
   "credit_note",
   "is_return",
-  "tab_connections",
-  "amended_from"
+  "tab_connections"
  ],
  "fields": [
   {
@@ -693,18 +692,6 @@
    "show_dashboard": 1
   },
   {
-   "fieldname": "amended_from",
-   "fieldtype": "Link",
-   "ignore_user_permissions": 1,
-   "label": "Amended From",
-   "no_copy": 1,
-   "oldfieldname": "amended_from",
-   "oldfieldtype": "Link",
-   "options": "Stock Movement Intra",
-   "print_hide": 1,
-   "read_only": 1
-  },
-  {
    "fieldname": "parent_company",
    "fieldtype": "Link",
    "label": "Parent Company",
@@ -720,7 +707,7 @@
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-01-29 11:25:57.540707",
+ "modified": "2026-08-23 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "Customer Display",
  "name": "Stock Movement Intra",

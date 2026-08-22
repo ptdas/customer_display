@@ -1,111 +1,82 @@
+// Copyright (c) 2026, DAS and contributors
+// For license information, please see license.txt
+
+// Sesudah split, company dan gudang penerima ada di site seberang - tidak bisa
+// dipilih lewat Link. Gudang tujuan diisi dari daftar yang ditarik dari sana,
+// sisanya (company asal/tujuan, gudang per baris, rate) diisi server waktu
+// dokumen disimpan.
+
+const METODE = "customer_display.customer_display.doctype.stock_movement_inter.stock_movement_inter";
+
 frappe.ui.form.on("Stock Movement Inter", {
 	onload(frm) {
-		frm.set_query("source_company", () => ({
-			filters: { parent_company: ["is", "not set"] }
-		}));
-
-		frm.set_query("target_company", () => ({
-			filters: { parent_company: ["is", "not set"] }
-		}));
-
-		frm.set_query("from_warehouse", () => ({
-			filters: { company: frm.doc.source_company || "" }
-		}));
-
-		frm.set_query("to_warehouse", () => ({
-			filters: { company: frm.doc.target_company || "" }
-		}));
+		if (!frm.doc.posting_time) {
+			frm.set_value("posting_time", frappe.datetime.now_time());
+		}
+		muat_gudang_tujuan(frm);
 	},
 
-    source_company(frm) {
-        frm.set_value("from_warehouse", null);
-
-        if (frm.doc.items && frm.doc.items.length) {
-            frm.doc.items.forEach(row => {
-                if (row.item_code) {
-                    handle_item_code(frm, row.doctype, row.name, "source");
-                }
-            });
-        }
-    },
-
-    target_company(frm) {
-        frm.set_value("to_warehouse", null);
-
-        if (frm.doc.items && frm.doc.items.length) {
-            frm.doc.items.forEach(row => {
-                if (row.item_code) {
-                    handle_item_code(frm, row.doctype, row.name, "target");
-                }
-            });
-        }
-    },
-
-    from_warehouse(frm){
-        if (frm.doc.items && frm.doc.items.length) {
-            frm.doc.items.forEach(row => {
-                if (row.item_code) {
-                    handle_item_code(frm, row.doctype, row.name, "source");
-                }
-            });
-        }
-    },
-    to_warehouse(frm){
-        if (frm.doc.items && frm.doc.items.length) {
-            frm.doc.items.forEach(row => {
-                if (row.item_code) {
-                    handle_item_code(frm, row.doctype, row.name, "target");
-                }
-            });
-        }
-    }
-
+	refresh(frm) {
+		muat_gudang_tujuan(frm);
+		tampilkan_status(frm);
+		tombol_kirim_ulang(frm);
+	},
 });
 
-frappe.ui.form.on("Stock Movement Inter Detail", {
-	item_code(frm, cdt, cdn) {
-		handle_item_code(frm, cdt, cdn);
-	}
-});
+function muat_gudang_tujuan(frm) {
+	if (frm.doc.docstatus !== 0 || frm._gudang_peer) return;
 
-function handle_item_code(frm, cdt, cdn, direction) {
-    let row = locals[cdt][cdn];
-    if (!row.item_code) return;
-
-    if (!direction || direction === "source") {
-        if (frm.doc.source_company) {
-            frappe.call({
-                method: "customer_display.customer_display.doctype.stock_movement_inter.stock_movement_inter.get_vendor_company_and_default_warehouse",
-                args: { item_code: row.item_code, parent_company: frm.doc.source_company, input_warehouse: frm.doc.from_warehouse },
-                callback(r) {
-                    console.log(r.message);
-                    if (r.message) {
-                        frappe.model.set_value(cdt, cdn, "from_company", r.message.company);
-                        frappe.model.set_value(cdt, cdn, "s_warehouse", r.message.warehouse);
-                        frappe.model.set_value(cdt, cdn, "rate", r.message.rate);
-                        frm.refresh_field("items"); 
-                    }
-                }
-            });
-        }
-    }
-
-    if (!direction || direction === "target") {
-        if (frm.doc.target_company) {
-            frappe.call({
-                method: "customer_display.customer_display.doctype.stock_movement_inter.stock_movement_inter.get_vendor_company_and_default_warehouse",
-                args: { item_code: row.item_code, parent_company: frm.doc.target_company, input_warehouse: frm.doc.to_warehouse },
-                callback(r) {
-                    console.log(r.message);
-                    if (r.message) {
-                        frappe.model.set_value(cdt, cdn, "to_company", r.message.company);
-                        frappe.model.set_value(cdt, cdn, "t_warehouse", r.message.warehouse);
-                        frappe.model.set_value(cdt, cdn, "rate", r.message.rate);
-                        frm.refresh_field("items"); 
-                    }
-                }
-            });
-        }
-    }
+	frappe.call({
+		method: `${METODE}.daftar_gudang_peer`,
+		callback(r) {
+			if (!r.message) return;
+			frm._gudang_peer = r.message;
+			frm.set_df_property("to_warehouse", "options", r.message);
+			frm.refresh_field("to_warehouse");
+		},
+		error() {
+			// Site seberang sedang tidak terjangkau. Dokumen tetap boleh
+			// diketik - server yang akan menolak waktu disimpan, dengan
+			// pesan yang jelas.
+			frm.set_df_property(
+				"to_warehouse",
+				"description",
+				__("Site tujuan sedang tidak terjangkau, daftar gudang tidak bisa diambil.")
+			);
+		},
+	});
 }
 
+function tampilkan_status(frm) {
+	if (frm.doc.docstatus !== 1 || !frm.doc.status) return;
+
+	const warna = {
+		Terkirim: "green",
+		"Belum Terkirim": "orange",
+		"Gagal Kirim": "red",
+	};
+
+	frm.dashboard.clear_headline();
+	frm.dashboard.set_headline_alert(
+		frm.doc.pesan_terakhir
+			? `${__(frm.doc.status)}: ${frappe.utils.escape_html(frm.doc.pesan_terakhir)}`
+			: __(frm.doc.status),
+		warna[frm.doc.status] || "blue"
+	);
+}
+
+function tombol_kirim_ulang(frm) {
+	if (frm.doc.docstatus !== 1 || frm.doc.status === "Terkirim") return;
+
+	frm.add_custom_button(__("Kirim Ulang"), () => {
+		frappe.call({
+			method: `${METODE}.kirim_ulang`,
+			args: { nama: frm.doc.name },
+			freeze: true,
+			freeze_message: __("Mengirim ke site tujuan..."),
+			callback() {
+				frm.reload_doc();
+			},
+		});
+	}).addClass("btn-primary");
+}

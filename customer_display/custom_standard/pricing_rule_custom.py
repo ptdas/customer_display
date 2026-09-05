@@ -56,3 +56,26 @@ def get_filtered_items(supplier=None, brand=None):
         fields=['name'],
         order_by='name'
     )
+
+@frappe.whitelist()
+def get_item_from_scan(scan_value):
+    """Terjemahkan isi kolom scan_item_code jadi nama Item.
+
+    Barcode scanner mengirim isi barcode, yang belum tentu sama dengan nama
+    Item - jadi dicoba dulu sebagai nama Item, baru sebagai barcode.
+    """
+    scan_value = (scan_value or '').strip()
+
+    if not scan_value:
+        return None
+
+    item_code = frappe.db.get_value('Item', scan_value, 'name')
+
+    if not item_code:
+        item_code = frappe.db.get_value(
+            'Item Barcode',
+            {'barcode': scan_value},
+            'parent'
+        )
+
+    return item_code

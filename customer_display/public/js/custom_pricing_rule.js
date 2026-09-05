@@ -40,8 +40,8 @@ frappe.ui.form.on('Pricing Rule', {
         set_item_query(frm);
     },
 
-    refresh(frm) {
-        set_item_query(frm);
+    scan_item_code(frm) {
+        tambah_item_hasil_scan(frm);
     },
     custom_get_item(frm) {
         get_items(frm);
@@ -57,6 +57,8 @@ frappe.ui.form.on('Pricing Rule', {
         }
     },
     refresh(frm) {
+        set_item_query(frm);
+
         if (!frm.doc.name || frm.is_new()) return;
 
         frm.add_custom_button(__("Report Item Impact"), function () {
@@ -114,4 +116,57 @@ function get_items(frm) {
             });
         }
     });
+}
+
+function tambah_item_hasil_scan(frm) {
+    const scan_value = (frm.doc.scan_item_code || '').trim();
+    if (!scan_value) return;
+
+    frappe.call({
+        method: 'customer_display.custom_standard.pricing_rule_custom.get_item_from_scan',
+        args: { scan_value },
+        callback(r) {
+            // Dikosongkan lebih dulu supaya scan berikutnya bisa langsung masuk
+            kosongkan_scan_field(frm);
+
+            const item_code = r.message;
+
+            if (!item_code) {
+                frappe.show_alert({
+                    message: __('Item untuk {0} tidak ketemu', [scan_value]),
+                    indicator: 'red'
+                });
+                return;
+            }
+
+            if ((frm.doc.items || []).some(d => d.item_code === item_code)) {
+                frappe.show_alert({
+                    message: __('{0} sudah ada di tabel', [item_code]),
+                    indicator: 'orange'
+                });
+                return;
+            }
+
+            let row = frm.add_child('items');
+            row.item_code = item_code;
+
+            frm.refresh_field('items');
+            frm.dirty();
+
+            frappe.show_alert({
+                message: __('{0} ditambahkan', [item_code]),
+                indicator: 'green'
+            });
+        }
+    });
+}
+
+function kosongkan_scan_field(frm) {
+    frm.set_value('scan_item_code', '');
+
+    // Kursor dikembalikan ke kolom scan supaya scanner tidak perlu diklik lagi
+    const field = frm.fields_dict.scan_item_code;
+    if (field && field.$input) {
+        field.$input.focus();
+    }
 }

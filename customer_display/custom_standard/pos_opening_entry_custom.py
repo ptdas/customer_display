@@ -368,3 +368,17 @@ def force_start_date_midnight(doc, method):
 
     date_only = getdate(doc.period_start_date)
     doc.period_start_date = get_datetime(f"{date_only} 00:00:00")
+
+
+def set_pos_invoice_consolidated(doc, method=None):
+    for row in doc.get("pos_transactions") or []:
+        if not row.get("pos_invoice"):
+            continue
+
+        frappe.db.set_value(
+            "POS Invoice",
+            row.pos_invoice,
+            "status",
+            "Consolidated",
+            update_modified=False
+        )

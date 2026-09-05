@@ -271,6 +271,7 @@ def split_pos_invoice(doc, method):
                 "item_code": item.item_code,
                 "qty": allocate_qty,
                 "rate": item.rate,
+                "price_list_rate": item.price_list_rate,
                 "uom": item.uom,
                 "warehouse": wh,
                 "custom_handled_by_spg": item.custom_handled_by_spg
@@ -282,10 +283,13 @@ def split_pos_invoice(doc, method):
             si = get_invoice(last_company)
             si.append("items", {
                 "item_code": item.item_code,
-                "qty": remaining_qty,
+                # "qty": allocate_qty,
+                "qty" : remaining_qty,
                 "rate": item.rate,
+                "price_list_rate": item.price_list_rate,
                 "uom": item.uom,
-                "warehouse": last_wh,
+                # "warehouse": wh,
+                "warehouse":  last_wh,
                 "custom_handled_by_spg": item.custom_handled_by_spg
             })
 
@@ -334,7 +338,8 @@ def split_pos_invoice(doc, method):
         si.update_stock = 1
         si.insert(ignore_permissions=True)
 
-    if total_pos_amount and pos.payments:
+    # if total_pos_amount and pos.payments:
+    if total_pos_amount and pos.payments and not pos.custom_is_b2b:
         # frappe.throw("Erro1r")
         si_list = []
         for si in invoices.values():

@@ -13,6 +13,8 @@ frappe.ui.form.on("Supplier Discount Claim", {
 				frappe.datetime.month_end()
 			);
 		}
+
+
 	},
 
 	get_data(frm) {

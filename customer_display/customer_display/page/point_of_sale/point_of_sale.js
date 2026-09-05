@@ -503,6 +503,41 @@ function add_custom_pos_container(callback) {
                     </div>
                 </div>
 
+                <!-- CUSTOMER POINT -->
+                <div
+                    id="customer-point-section"
+                    style="display:none; margin:4px 0;"
+                >
+                    <div
+                        id="customer-point-info"
+                        style="
+                            padding:6px 8px;
+                            border-radius:6px;
+                            background:rgba(127,127,127,0.08);
+                            display:flex;
+                            align-items:center;
+                            justify-content:space-between;
+                            gap:12px;
+                        "
+                    >
+                        <strong style="white-space:nowrap;">
+                            Point
+                        </strong>
+
+                        <span id="customer-point-value">
+                            0 Point
+                        </span>
+
+                        <strong style="white-space:nowrap;">
+                            Max Discount
+                        </strong>
+
+                        <span id="customer-max-discount">
+                            Rp0
+                        </span>
+                    </div>
+                </div>
+
                 <!-- SPG DEFAULT -->
                 <div class="form-group" style="margin-bottom:1px;">
                     <div id="pos-spg-section" class="spg-section">
@@ -1382,41 +1417,362 @@ async function set_b2b_default_from_pos_profile(frm) {
     }
 }
 
+
+window.pos_customer_point = 0;
+window.pos_customer_max_discount = 0;
+window.pos_customer_point_customer = null;
+window.pos_customer_point_request_id = 0;
+
+
+function format_rupiah(value) {
+    return 'Rp' + Number(value || 0).toLocaleString('id-ID');
+}
+
+
+function load_customer_point(customer_id) {
+
+    const section = $('#customer-point-section');
+
+
+    // =====================================================
+    // CUSTOMER KOSONG
+    // =====================================================
+    if (!customer_id) {
+
+        window.pos_customer_point = 0;
+        window.pos_customer_max_discount = 0;
+        window.pos_customer_point_customer = null;
+
+        if (section.length) {
+            section.show();
+
+            $('#customer-point-value').text('0 Point');
+
+            $('#customer-max-discount').text(
+                format_rupiah(0)
+            );
+        }
+
+        console.log('CUSTOMER KOSONG → POINT RESET 0');
+
+        return;
+    }
+
+
+    // =====================================================
+    // CONTAINER BELUM ADA
+    // =====================================================
+    if (!section.length) {
+
+        setTimeout(() => {
+            load_customer_point(customer_id);
+        }, 300);
+
+        return;
+    }
+
+
+    // =====================================================
+    // CUSTOMER SAMA
+    // Jangan request API lagi
+    // =====================================================
+    if (
+        window.pos_customer_point_customer === customer_id
+    ) {
+
+        section.show();
+
+        console.log(
+            'CUSTOMER SAMA → TIDAK REQUEST ULANG:',
+            customer_id
+        );
+
+        return;
+    }
+
+
+    // =====================================================
+    // CUSTOMER BARU
+    // =====================================================
+
+    window.pos_customer_point_request_id++;
+
+    const request_id =
+        window.pos_customer_point_request_id;
+
+    // Simpan customer yang sedang diminta
+    window.pos_customer_point_customer = customer_id;
+
+    section.show();
+
+    $('#customer-point-value').text('Loading...');
+    $('#customer-max-discount').text('Loading...');
+
+
+    console.log(
+        'GET CUSTOMER POINT:',
+        customer_id,
+        'request:',
+        request_id
+    );
+
+
+    $.ajax({
+
+        url: 'https://alan.digitalasiasolusindo.com/api/method/alan.api.get_customer_point',
+
+        method: 'GET',
+
+        data: {
+            customer_id: customer_id
+        },
+
+
+        success: function (r) {
+
+            // =================================================
+            // Kalau ada request baru, abaikan response lama
+            // =================================================
+
+            if (
+                request_id !==
+                window.pos_customer_point_request_id
+            ) {
+
+                console.log(
+                    'RESPONSE LAMA DIABAIKAN:',
+                    customer_id
+                );
+
+                return;
+            }
+
+
+            console.log(
+                'CUSTOMER POINT RESPONSE:',
+                r
+            );
+
+
+            const data = r.message;
+
+
+            // =================================================
+            // API GAGAL / CUSTOMER TIDAK ADA
+            // =================================================
+
+            if (!data || !data.success) {
+
+                window.pos_customer_point = 0;
+                window.pos_customer_max_discount = 0;
+
+                $('#customer-point-value').text(
+                    '0 Point'
+                );
+
+                $('#customer-max-discount').text(
+                    format_rupiah(0)
+                );
+
+                console.log(
+                    'API TIDAK MENEMUKAN CUSTOMER:',
+                    customer_id
+                );
+
+                return;
+            }
+
+
+            // =================================================
+            // DATA BERHASIL
+            // =================================================
+
+            const point =
+                parseFloat(data.jmlpoint) || 0;
+
+            const max_discount =
+                point * 2500;
+
+
+            window.pos_customer_point =
+                point;
+
+            window.pos_customer_max_discount =
+                max_discount;
+
+
+            // Pastikan customer masih sama
+            window.pos_customer_point_customer =
+                customer_id;
+
+
+            // =================================================
+            // UPDATE UI
+            // =================================================
+
+            $('#customer-point-value').text(
+                `${point.toLocaleString('id-ID')} Point`
+            );
+
+            $('#customer-max-discount').text(
+                format_rupiah(max_discount)
+            );
+
+
+            console.log(
+                'POINT:',
+                point
+            );
+
+            console.log(
+                'MAX DISCOUNT:',
+                max_discount
+            );
+        },
+
+
+        error: function (xhr, status, error) {
+
+            // Jangan proses response request lama
+            if (
+                request_id !==
+                window.pos_customer_point_request_id
+            ) {
+                return;
+            }
+
+
+            console.error(
+                'GAGAL MENGAMBIL POINT CUSTOMER:',
+                error,
+                xhr.responseText
+            );
+
+
+            window.pos_customer_point = 0;
+            window.pos_customer_max_discount = 0;
+
+
+            $('#customer-point-value').text(
+                '0 Point'
+            );
+
+            $('#customer-max-discount').text(
+                format_rupiah(0)
+            );
+        }
+    });
+}
+
+// frappe.ui.form.on("POS Invoice", {
+//     customer(frm) {
+//         setTimeout(() => {
+//             sync_marketplace_resi(frm);
+//         }, 300);
+
+//         // Ambil point customer dari alan.digital
+//         setTimeout(() => {
+//             load_customer_point(frm.doc.customer);
+//         }, 300);
+//     },
+
+//     onload(frm) {
+//         sync_grosir_ui_from_doc(frm);
+
+//         setTimeout(() => {
+//             sync_marketplace_resi(frm);
+//         }, 300);
+
+//         // Default B2B dari POS Profile
+//         setTimeout(() => {
+//             set_b2b_default_from_pos_profile(frm);
+//         }, 500);
+
+//         setTimeout(() => {
+//             load_customer_point(frm.doc.customer);
+//         }, 500);
+//     },
+//     refresh(frm) {
+//         sync_grosir_ui_from_doc(frm);
+
+//         setTimeout(() => {
+//             sync_marketplace_resi(frm);
+//         }, 300);
+
+//         setTimeout(() => {
+//             load_customer_point(frm.doc.customer);
+//         }, 300);
+
+//         // Saat POS kembali ke New Order (invoice baru),
+//         // reload ulang cache item agar stock terbaru tampil
+//         // Lewati refresh pertama saat POS baru dibuka
+//         if (!pos_item_selector_initialized) {
+//             pos_item_selector_initialized = true;
+//             return;
+//         }
+
+//         // Hanya saat invoice baru (New Order)
+//         if (frm.is_new()) {
+//             setTimeout(() => {
+//                 refresh_pos_item_selector();
+//             }, 300);
+//         }
+//     }
+// });
+
+
 frappe.ui.form.on("POS Invoice", {
+
     customer(frm) {
+
+        const customer_id = frm.doc.customer || null;
+
+        // Simpan customer yang sedang aktif
+        window.pos_active_customer = customer_id;
+
         setTimeout(() => {
             sync_marketplace_resi(frm);
         }, 300);
+
+        setTimeout(() => {
+            load_customer_point(customer_id);
+        }, 500);
     },
 
     onload(frm) {
+
         sync_grosir_ui_from_doc(frm);
 
         setTimeout(() => {
             sync_marketplace_resi(frm);
         }, 300);
 
-        // Default B2B dari POS Profile
         setTimeout(() => {
             set_b2b_default_from_pos_profile(frm);
         }, 500);
+
+        setTimeout(() => {
+            load_customer_point(frm.doc.customer);
+        }, 700);
     },
+
     refresh(frm) {
+
         sync_grosir_ui_from_doc(frm);
 
         setTimeout(() => {
             sync_marketplace_resi(frm);
         }, 300);
 
-        // Saat POS kembali ke New Order (invoice baru),
-        // reload ulang cache item agar stock terbaru tampil
-        // Lewati refresh pertama saat POS baru dibuka
+        setTimeout(() => {
+            load_customer_point(frm.doc.customer);
+        }, 500);
+
         if (!pos_item_selector_initialized) {
             pos_item_selector_initialized = true;
             return;
         }
 
-        // Hanya saat invoice baru (New Order)
         if (frm.is_new()) {
             setTimeout(() => {
                 refresh_pos_item_selector();
@@ -1424,5 +1780,3 @@ frappe.ui.form.on("POS Invoice", {
         }
     }
 });
-
-

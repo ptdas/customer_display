@@ -44,6 +44,12 @@ def execute(filters=None):
 			"width": 120,
 		},
 		{
+			"label": "Disk Spl %",
+			"fieldname": "discount_percentage",
+			"fieldtype": "Percent",
+			"width": 100,
+		},
+		{
 			"label": "Disk Spl Rp",
 			"fieldname": "diskon",
 			"fieldtype": "Currency",
@@ -119,5 +125,13 @@ def execute(filters=None):
 		"to_date": filters.get("to_date"),
 		"companies": tuple(companies),
 	}, as_dict=True)
+
+	for row in data:
+		if row.harga_jual:
+			row.discount_percentage = (
+				row.diskon / row.harga_jual
+			) * 100
+		else:
+			row.discount_percentage = 0
 
 	return columns, data

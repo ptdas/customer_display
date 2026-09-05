@@ -23,6 +23,11 @@ class SupplierDiscountClaim(Document):
 				"From Date tidak boleh lebih besar dari To Date."
 			)
 
+		if not self.supplier:
+			frappe.throw(
+				"Supplier wajib diisi."
+			)
+
 		pricing_rules = self.get_supplier_pricing_rules()
 
 		if not pricing_rules:
@@ -61,16 +66,20 @@ class SupplierDiscountClaim(Document):
 				"si.docstatus = 1",
 				"si.posting_date BETWEEN %(from_date)s AND %(to_date)s",
 				"sii.item_code IN %(item_codes)s",
+				"si.is_return = 0",
 			]
 
 			values = {
 				"from_date": self.from_date,
 				"to_date": self.to_date,
 				"item_codes": tuple(item_codes),
+				"supplier": self.supplier,
 			}
 
 			if self.brand:
-				conditions.append("item.brand = %(brand)s")
+				conditions.append(
+					"item.brand = %(brand)s"
+				)
 				values["brand"] = self.brand
 
 			data = frappe.db.sql(
@@ -85,6 +94,7 @@ class SupplierDiscountClaim(Document):
 					sii.item_code,
 					sii.item_name,
 					sii.qty,
+					sii.price_list_rate AS harga_jual,
 					item.brand
 				FROM `tabSales Invoice` si
 				INNER JOIN `tabSales Invoice Item` sii
@@ -113,12 +123,7 @@ class SupplierDiscountClaim(Document):
 				if claim_key in claimed_map:
 					continue
 
-				harga_jual = self.get_item_price(
-					rule.for_price_list,
-					row.item_code
-				)
-
-				harga_jual = flt(harga_jual)
+				harga_jual = flt(row.harga_jual)
 
 				diskon = self.calculate_discount(
 					rule,
@@ -196,6 +201,229 @@ class SupplierDiscountClaim(Document):
 
 		return result
 
+	def get_company_from_supplier(self):
+		"""
+		Menentukan company berdasarkan cabang user.
+
+		Prioritas:
+		1. BJM -> Supplier.custom_vendor_company_bjm
+		2. BJB -> Supplier.custom_vendor_company
+		"""
+
+		if not self.supplier:
+			frappe.throw(
+				"Supplier wajib diisi."
+			)
+
+		# Ambil company dari Supplier
+		supplier = frappe.db.get_value(
+			"Supplier",
+			self.supplier,
+			[
+				"custom_vendor_company",
+				"custom_vendor_company_bjm",
+			],
+			as_dict=True,
+		)
+
+		if not supplier:
+			frappe.throw(
+				f"Supplier {self.supplier} tidak ditemukan."
+			)
+
+		user = frappe.get_doc(
+			"User",
+			frappe.session.user
+		)
+
+		user_companies = [
+			row.company
+			for row in user.get("cabang_user") or []
+			if row.company
+		]
+
+		if "BJM" in user_companies:
+
+			company = supplier.custom_vendor_company_bjm
+
+			if not company:
+				frappe.throw(
+					f"Supplier {self.supplier} belum memiliki "
+					"Custom Vendor Company BJM."
+				)
+
+			return company
+
+		if "BJB" in user_companies:
+
+			company = supplier.custom_vendor_company
+
+			if not company:
+				frappe.throw(
+					f"Supplier {self.supplier} belum memiliki "
+					"Custom Vendor Company."
+				)
+
+			return company
+
+		frappe.throw(
+			"User tidak memiliki cabang BJM atau BJB."
+		)
+
+	def on_submit(self):
+
+		company = self.get_company_from_supplier()
+
+		if self.company != company:
+			self.db_set("company", company)
+			self.company = company
+
+		self.create_journal_entry(company)
+
+	def create_journal_entry(self, company):
+
+		if self.get("journal_entry"):
+			existing_je = frappe.db.get_value(
+				"Journal Entry",
+				self.journal_entry,
+				"docstatus"
+			)
+
+			if existing_je in (0, 1):
+				return self.journal_entry
+
+		total_amount = 0
+
+		for row in self.get("claim_items") or []:
+			total_amount += flt(row.jumlah)
+
+		total_amount = flt(total_amount)
+
+		if total_amount <= 0:
+			frappe.throw(
+				"Total diskon tidak boleh 0."
+			)
+
+		discount_account = frappe.db.get_single_value(
+			"AXTRA Settings",
+			"discount_pembelian"
+		)
+
+		if not discount_account:
+			frappe.throw(
+				"Field Discount Pembelian belum diset di AXTRA Settings."
+			)
+
+		company_abbr = frappe.db.get_value(
+			"Company",
+			company,
+			"abbr"
+		)
+
+		if not company_abbr:
+			frappe.throw(
+				f"Abbreviation belum diset untuk company {company}."
+			)
+
+		parts = discount_account.rsplit(" - ", 1)
+
+		if len(parts) == 2:
+			debit_account_name = f"{parts[0]} - {company_abbr}"
+		else:
+			debit_account_name = discount_account
+
+		debit_account = frappe.db.get_value(
+			"Account",
+			{
+				"name": debit_account_name,
+				"company": company,
+				"is_group": 0,
+			},
+			"name"
+		)
+
+		if not debit_account:
+			frappe.throw(
+				f"Account debit '{debit_account_name}' "
+				f"tidak ditemukan untuk company {company}."
+			)
+
+		credit_account = frappe.db.get_value(
+			"Company",
+			company,
+			"default_payable_account"
+		)
+
+		if not credit_account:
+			frappe.throw(
+				f"Default Payable Account belum diset "
+				f"untuk company {company}."
+			)
+
+		je = frappe.new_doc("Journal Entry")
+
+		je.voucher_type = "Journal Entry"
+		je.company = company
+		je.posting_date = self.to_date
+
+		je.user_remark = (
+			f"Supplier Discount Claim {self.name}"
+		)
+
+		je.append(
+			"accounts",
+			{
+				"account": debit_account,
+				"debit_in_account_currency": total_amount,
+				"credit_in_account_currency": 0,
+			}
+		)
+
+		je.append(
+			"accounts",
+			{
+				"account": credit_account,
+				"party_type": "Supplier",
+				"party": self.supplier,
+				"debit_in_account_currency": 0,
+				"credit_in_account_currency": total_amount,
+			}
+		)
+
+		je.insert(
+			ignore_permissions=True
+		)
+
+		je.submit()
+
+		self.db_set(
+			"journal_entry",
+			je.name
+		)
+
+		return je.name
+
+	def on_cancel(self):
+
+		journal_entry = self.get("journal_entry")
+
+		if not journal_entry:
+			return
+
+		if not frappe.db.exists(
+			"Journal Entry",
+			journal_entry
+		):
+			return
+
+		je = frappe.get_doc(
+			"Journal Entry",
+			journal_entry
+		)
+
+		if je.docstatus == 1:
+			je.cancel()
+
 	def get_supplier_pricing_rules(self):
 
 		return frappe.get_all(
@@ -223,7 +451,7 @@ class SupplierDiscountClaim(Document):
 					"valid_upto",
 					">=",
 					self.from_date
-				],
+				]
 			],
 			fields=[
 				"name",

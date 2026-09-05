@@ -201,3 +201,30 @@ def verify_pos_code_auth(pos_profile, code, description=""):
             }
 
     return False
+
+
+
+@frappe.whitelist(allow_guest=True)
+def get_customer_point(customer_id):
+    if not customer_id:
+        frappe.throw("Customer ID wajib diisi")
+
+    customer = frappe.db.get_value(
+        "Customer",
+        customer_id,
+        ["name", "customer_name", "custom_jmlpoint"],
+        as_dict=True
+    )
+
+    if not customer:
+        return {
+            "success": False,
+            "message": "Customer tidak ditemukan"
+        }
+
+    return {
+        "success": True,
+        "customer_id": customer.name,
+        "customer_name": customer.customer_name,
+        "jmlpoint": customer.custom_jmlpoint or 0
+    }

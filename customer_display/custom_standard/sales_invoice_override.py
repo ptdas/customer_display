@@ -416,7 +416,7 @@ class CustomSalesInvoice(SellingController):
 		self.set_paid_amount()
 
 	def on_submit(self):
-		self.validate_pos_paid_amount()
+		# self.validate_pos_paid_amount()
 
 		if not self.auto_repeat:
 			frappe.get_doc("Authorization Control").validate_approving_authority(

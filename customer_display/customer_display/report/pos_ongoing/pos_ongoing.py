@@ -122,7 +122,7 @@ def get_data(filters):
         FROM `tabSales Taxes and Charges`
         WHERE
             parent IN %(invoices)s
-            AND IFNULL(rate, 0) != 0
+            AND description = 'POS Charge'
         GROUP BY parent
     """, {"invoices": invoice_names}, as_dict=1)
 
@@ -192,7 +192,7 @@ def get_data(filters):
         })
 
         summary[user]["discount_nota"] += abs(inv.discount_nota or 0)
-        summary[user]["discount_item"] += abs(item_discount_map.get(inv.name, 0))
+        # summary[user]["discount_item"] += abs(item_discount_map.get(inv.name, 0))
 
         summary[user]["total_change"] += inv.change_amount or 0
         summary[user]["uang_charge_kredit"] += tax_map.get(inv.name, 0)
@@ -408,3 +408,94 @@ def get_data(filters):
 # 			"width": 80
 # 		},
 # 	]
+
+
+
+def debug_charge_kredit(date):
+    """
+    Debug POS Invoice yang berkontribusi ke
+    Uang Charge Kredit untuk tanggal tertentu.
+    """
+
+    if not date:
+        print("DEBUG: tanggal belum diisi.")
+        return
+
+    filters = {
+        "date": date
+    }
+
+    pos_invoices = frappe.db.sql("""
+        SELECT
+            si.name,
+            si.owner,
+            si.is_return,
+            si.pos_profile
+        FROM `tabPOS Invoice` si
+        WHERE
+            si.docstatus = 1
+            AND si.is_pos = 1
+            AND si.posting_date = %(date)s
+            AND NOT EXISTS (
+                SELECT 1
+                FROM `tabPOS Invoice Reference` ref
+                INNER JOIN `tabPOS Closing Entry` pc
+                    ON pc.name = ref.parent
+                WHERE
+                    ref.pos_invoice = si.name
+                    AND pc.docstatus = 1
+            )
+    """, filters, as_dict=1)
+
+    if not pos_invoices:
+        print("Tidak ada POS Invoice yang masuk report.")
+        return
+
+    invoice_names = [inv.name for inv in pos_invoices]
+
+    tax_rows = frappe.db.sql("""
+        SELECT
+            parent,
+            SUM(tax_amount) AS total_charge
+        FROM `tabSales Taxes and Charges`
+        WHERE
+            parent IN %(invoices)s
+            AND description = 'POS Charge'
+        GROUP BY parent
+    """, {
+        "invoices": invoice_names
+    }, as_dict=1)
+
+    tax_map = {
+        row.parent: row.total_charge or 0
+        for row in tax_rows
+    }
+
+    print("\n" + "=" * 100)
+    print("DEBUG UANG CHARGE KREDIT")
+    print("Tanggal:", date)
+    print("=" * 100)
+
+    total = 0
+    jumlah_invoice = 0
+
+    for inv in pos_invoices:
+
+        charge = tax_map.get(inv.name, 0)
+
+        if charge:
+            print(
+                "Invoice:", inv.name,
+                "| Owner:", inv.owner,
+                "| Return:", inv.is_return,
+                "| POS Profile:", inv.pos_profile,
+                "| Charge Kredit:", charge
+            )
+
+            total += charge
+            jumlah_invoice += 1
+
+    print("-" * 100)
+    print("TOTAL UANG CHARGE KREDIT:", total)
+    print("JUMLAH INVOICE:", jumlah_invoice)
+    print("=" * 100)

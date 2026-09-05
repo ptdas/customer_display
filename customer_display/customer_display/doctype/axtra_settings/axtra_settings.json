@@ -26,10 +26,10 @@
   "item_forwarder",
   "tab_5_tab",
   "stock_movement_inter_settings",
-  "template_ppn_penjualan",
-  "template_ppn_pembelian",
   "moved_tab",
-  "allowed_tab_moved"
+  "allowed_tab_moved",
+  "supplier_discount_claim_tab",
+  "discount_pembelian"
  ],
  "fields": [
   {
@@ -157,20 +157,6 @@
    "options": "Stock Movement Inter Settings"
   },
   {
-   "fieldname": "template_ppn_penjualan",
-   "fieldtype": "Link",
-   "label": "Template PPN Penjualan (company PKP)",
-   "options": "Sales Taxes and Charges Template",
-   "description": "Dipakai Stock Movement Inter saat pengirimnya company PKP"
-  },
-  {
-   "fieldname": "template_ppn_pembelian",
-   "fieldtype": "Link",
-   "label": "Template PPN Pembelian (company PKP)",
-   "options": "Purchase Taxes and Charges Template",
-   "description": "Dipakai Stock Movement Inter saat penerimanya company PKP"
-  },
-  {
    "fieldname": "moved_tab",
    "fieldtype": "Tab Break",
    "label": "Moved"
@@ -186,12 +172,23 @@
    "fieldtype": "Link",
    "label": "COA Biaya Angkut",
    "options": "Account"
+  },
+  {
+   "fieldname": "supplier_discount_claim_tab",
+   "fieldtype": "Tab Break",
+   "label": "Supplier Discount Claim"
+  },
+  {
+   "fieldname": "discount_pembelian",
+   "fieldtype": "Link",
+   "label": "Discount Pembelian",
+   "options": "Account"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-08-23 12:00:00.000000",
+ "modified": "2026-08-31 09:39:29.115024",
  "modified_by": "Administrator",
  "module": "Customer Display",
  "name": "AXTRA Settings",

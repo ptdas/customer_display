@@ -149,3 +149,5 @@ def validate_return_payments(doc, method=None):
 
         row.amount = amount
         row.base_amount = amount
+
+

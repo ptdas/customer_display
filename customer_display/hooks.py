@@ -60,6 +60,8 @@ doctype_js = {
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
+# doctype_list_js = {"POS Invoice": "public/js/pos_invoice_list.js"}
+
 # Svg Icons
 # ------------------
 # include app icons in desk
@@ -207,7 +209,7 @@ doc_events = {
 	},
 
 	"POS Opening Entry":{
-		# "validate": "customer_display.custom_standard.pos_opening_entry_custom.check_double"
+		"validate": "customer_display.custom_standard.pos_opening_entry_custom.check_double",
         "validate": "customer_display.custom_standard.pos_opening_entry_custom.force_start_date_midnight"
 	},
 
@@ -215,6 +217,9 @@ doc_events = {
 		"validate": ["customer_display.custom_standard.pos_opening_entry_custom.ambil_closing_kalau_kosong",
                "customer_display.custom_standard.pos_opening_entry_custom.ambil_return_usage",
                "customer_display.custom_standard.pos_opening_entry_custom.validate_get_tutup_kasir"],
+		"on_submit": [
+			"customer_display.custom_standard.pos_opening_entry_custom.set_pos_invoice_consolidated"
+		],
 	},
 	"Purchase Order": {
 		"on_submit": "customer_display.custom_standard.purchase_order_custom.auto_create_purchase_invoice",
@@ -263,6 +268,7 @@ doc_events = {
 
 override_doctype_class = {
     "Sales Invoice": "customer_display.custom_standard.sales_invoice_override.CustomSalesInvoice",
+    "Purchase Invoice": "customer_display.custom_standard.purchase_invoice_override.CustomPurchaseInvoice"
 }
 # Scheduled Tasks
 # ---------------

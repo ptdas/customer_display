@@ -2,14 +2,202 @@ frappe.ui.form.on('Payment Entry', {
     refresh:function(frm){
         hide_perm(frm);
     },
-    async party(frm) {
-        await auto_set_company_from_supplier_by_user(frm);
-    },
+    custom_supplier(frm) {
+		set_payment_entry_company_from_supplier(frm);
+	},
 
-    async party_type(frm) {
-        await auto_set_company_from_supplier_by_user(frm);
-    }
+	payment_type(frm) {
+		if (frm.doc.payment_type === "Pay" && frm.doc.custom_supplier) {
+			set_payment_entry_company_from_supplier(frm);
+		}
+	},
+    custom_uang_muka(frm) {
+		if (frm.doc.custom_uang_muka) {
+			set_paid_to_from_advance_account(frm);
+		}
+	},
+	company(frm) {
+		if (frm.doc.custom_uang_muka) {
+			set_paid_to_from_advance_account(frm);
+		}
+	}
+    // async party(frm) {
+    //     await auto_set_company_from_supplier_by_user(frm);
+    // },
+
+    // async party_type(frm) {
+    //     await auto_set_company_from_supplier_by_user(frm);
+    // }
 });
+
+// function set_payment_entry_company_from_supplier(frm) {
+// 	if (frm.doc.payment_type !== "Pay") {
+// 		return;
+// 	}
+
+// 	if (!frm.doc.custom_supplier) {
+// 		frm.set_value("party_type", "");
+// 		frm.set_value("party", "");
+// 		frm.set_value("party_name", "");
+// 		frm.set_value("company", "");
+// 		return;
+// 	}
+
+// 	// Ambil data Supplier
+// 	frappe.call({
+// 		method: "frappe.client.get",
+// 		args: {
+// 			doctype: "Supplier",
+// 			name: frm.doc.custom_supplier
+// 		},
+// 		callback: function(r) {
+// 			if (!r.message) return;
+
+// 			const supplier = r.message;
+
+// 			// Set Party Type
+// 			frm.set_value("party_type", "Supplier").then(() => {
+
+// 				// Set Party
+// 				frm.set_value("party", supplier.name).then(() => {
+
+// 					// Set Party Name
+// 					frm.set_value(
+// 						"party_name",
+// 						supplier.supplier_name || supplier.name
+// 					);
+
+// 				});
+// 			});
+
+// 			// Ambil Company dari Supplier
+// 			let companies = [];
+
+// 			if (supplier.custom_vendor_company) {
+// 				companies.push(supplier.custom_vendor_company);
+// 			}
+
+// 			if (supplier.custom_vendor_company_bjm) {
+// 				companies.push(supplier.custom_vendor_company_bjm);
+// 			}
+
+// 			companies = [...new Set(companies)];
+
+// 			if (companies.length === 1) {
+// 				frm.set_value("company", companies[0]);
+// 			} else if (
+// 				companies.length > 1 &&
+// 				!companies.includes(frm.doc.company)
+// 			) {
+// 				frm.set_value("company", companies[0]);
+// 			}
+// 		}
+// 	});
+// }
+
+function set_payment_entry_company_from_supplier(frm) {
+	if (frm.doc.payment_type !== "Pay") {
+		return;
+	}
+
+	if (!frm.doc.custom_supplier) {
+		frm.set_value("party_type", "");
+		frm.set_value("party", "");
+		frm.set_value("party_name", "");
+		frm.set_value("company", "");
+		return;
+	}
+
+	frappe.call({
+		method: "frappe.client.get",
+		args: {
+			doctype: "Supplier",
+			name: frm.doc.custom_supplier
+		},
+		callback: function(r) {
+			if (!r.message) return;
+
+			const supplier = r.message;
+
+			frm.set_value("party_type", "Supplier").then(() => {
+
+				frm.set_value("party", supplier.name).then(() => {
+
+					frm.set_value(
+						"party_name",
+						supplier.supplier_name || supplier.name
+					);
+
+				});
+			});
+
+			frappe.call({
+				method: "frappe.client.get",
+				args: {
+					doctype: "User",
+					name: frappe.session.user
+				},
+				callback: function(user_data) {
+					if (!user_data.message) return;
+
+					const user_companies = user_data.message.cabang_user || [];
+
+					const allowed_companies = user_companies
+						.map(row => row.company)
+						.filter(Boolean);
+
+					let selected_company = "";
+
+					// =================================================
+					// Cek cabang user
+					//
+					// BJM -> custom_vendor_company
+					// BJB -> custom_vendor_company_bjm
+					//
+					// Prioritas BJM
+					// =================================================
+
+					// if (allowed_companies.includes("BJM")) {
+					// 	selected_company = supplier.custom_vendor_company || "";
+					// }
+					// else if (allowed_companies.includes("BJB")) {
+					// 	selected_company = supplier.custom_vendor_company_bjm || "";
+					// }
+
+					selected_company = supplier.custom_vendor_company || "";
+
+					frm.set_value("company", selected_company);
+				}
+			});
+		}
+	});
+}
+
+function set_paid_to_from_advance_account(frm) {
+	if (!frm.doc.custom_uang_muka) {
+		return;
+	}
+
+	if (!frm.doc.company) {
+		frappe.msgprint(__("Company belum diisi"));
+		return;
+	}
+
+	frappe.db.get_value(
+		"Company",
+		frm.doc.company,
+		"default_advance_paid_account"
+	).then(r => {
+		if (r && r.message) {
+			if (r.message.default_advance_paid_account) {
+				frm.set_value(
+					"paid_to",
+					r.message.default_advance_paid_account
+				);
+			}
+		}
+	});
+}
 
 async function auto_set_company_from_supplier_by_user(frm) {
 

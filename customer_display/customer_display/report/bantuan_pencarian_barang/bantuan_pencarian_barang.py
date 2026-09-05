@@ -32,6 +32,7 @@ def execute(filters=None):
             COALESCE(w.company, '-') AS company,
             SUM(CASE WHEN w.custom_tipe_warehouse='Toko' THEN b.actual_qty ELSE 0 END) AS qty_toko,
             SUM(CASE WHEN w.custom_tipe_warehouse='Gudang' THEN b.actual_qty ELSE 0 END) AS qty_gudang,
+            SUM(CASE WHEN w.custom_tipe_warehouse='Waralaba' THEN b.actual_qty ELSE 0 END) AS qty_waralaba,
             {pl_select_sql}
         FROM `tabItem` i
         LEFT JOIN `tabBin` b ON b.item_code = i.item_code
@@ -99,6 +100,7 @@ def execute(filters=None):
             "vendor": last["vendor"],
             "qty_toko": bin_data["qty_toko"],
             "qty_gudang": bin_data["qty_gudang"],
+            "qty_waralaba": bin_data["qty_waralaba"],
             "cogs": last["cogs"],
             "lcv": last["lcv"],
             "ppn": last["ppn"],
@@ -166,6 +168,7 @@ def get_columns(price_lists=None):
 
         {"label": "Qty Toko", "fieldname": "qty_toko", "fieldtype": "Float", "width": 90},
         {"label": "Qty Gudang", "fieldname": "qty_gudang", "fieldtype": "Float", "width": 110},
+        {"label": "Qty Waralaba", "fieldname": "qty_waralaba", "fieldtype": "Float", "width": 110},
 
         {"label": "COGS", "fieldname": "cogs", "fieldtype": "Currency", "width": 100},
         {"label": "COGS + LCV + PPN", "fieldname": "cogs_lcv_ppn", "fieldtype": "Currency", "width": 150},
@@ -176,7 +179,7 @@ def get_columns(price_lists=None):
         price_list_order = [
             "Retail",
             "Grosir",
-            "Marketplace"
+            "MarketPlace"
         ]
 
         for pl in price_list_order:
@@ -226,7 +229,8 @@ def get_item_bin_info(item_code, company=None):
         SELECT
             w.company,
             SUM(CASE WHEN w.custom_tipe_warehouse='Toko' THEN b.actual_qty ELSE 0 END) AS qty_toko,
-            SUM(CASE WHEN w.custom_tipe_warehouse='Gudang' THEN b.actual_qty ELSE 0 END) AS qty_gudang
+            SUM(CASE WHEN w.custom_tipe_warehouse='Gudang' THEN b.actual_qty ELSE 0 END) AS qty_gudang,
+            SUM(CASE WHEN w.custom_tipe_warehouse='Waralaba' THEN b.actual_qty ELSE 0 END) AS qty_waralaba
         FROM `tabBin` b
         LEFT JOIN `tabWarehouse` w ON w.name = b.warehouse
         WHERE b.item_code = %s
@@ -239,12 +243,14 @@ def get_item_bin_info(item_code, company=None):
         return {
             "qty_toko": bin_info[0].qty_toko or 0,
             "qty_gudang": bin_info[0].qty_gudang or 0,
+            "qty_waralaba": bin_info[0].qty_waralaba or 0,
             "company": bin_info[0].company or "-"
         }
     else:
         return {
             "qty_toko": 0,
             "qty_gudang": 0,
+            "qty_waralaba": 0,
             "company": company or "-"
         }
 

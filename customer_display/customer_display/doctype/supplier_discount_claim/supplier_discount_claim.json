@@ -11,6 +11,9 @@
   "get_data",
   "column_break_hkpt",
   "to_date",
+  "supplier",
+  "company",
+  "journal_entry",
   "section_break_vvjx",
   "claim_items",
   "amended_from"
@@ -60,12 +63,34 @@
    "print_hide": 1,
    "read_only": 1,
    "search_index": 1
+  },
+  {
+   "fieldname": "supplier",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Supplier",
+   "options": "Supplier",
+   "reqd": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "hidden": 1,
+   "label": "company",
+   "options": "Company"
+  },
+  {
+   "fieldname": "journal_entry",
+   "fieldtype": "Link",
+   "label": "Journal Entry",
+   "options": "Journal Entry",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-08-15 16:18:27.595296",
+ "modified": "2026-08-31 09:28:57.863332",
  "modified_by": "Administrator",
  "module": "Customer Display",
  "name": "Supplier Discount Claim",

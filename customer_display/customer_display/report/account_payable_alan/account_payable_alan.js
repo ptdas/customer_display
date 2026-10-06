@@ -10,6 +10,13 @@ frappe.query_reports["Account Payable Alan"] = {
 			options: "Company",
 			reqd: 1,
 			default: frappe.defaults.get_user_default("Company"),
+			get_query: function () {
+				return {
+					filters: {
+						name: ["in", ["BJB", "BJM"]],
+					},
+				};
+			},
 		},
 		{
 			fieldname: "report_date",
@@ -175,7 +182,7 @@ frappe.query_reports["Account Payable Alan"] = {
 	onload: function (report) {
 		report.page.add_inner_button(__("Account Payable Summary ALAN"), function () {
 			var filters = report.get_values();
-			frappe.set_route("query-report", "Accounts Payable Summary ALAN", { company: filters.company });
+			frappe.set_route("query-report", "Account Payable Summary ALAN", { company: filters.company });
 		});
 	},
 };

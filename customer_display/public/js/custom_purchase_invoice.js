@@ -1,11 +1,57 @@
 
+// function calculate_custom_price(frm, cdt, cdn) {
+// 	const row = locals[cdt][cdn];
+
+// 	const price_list = row.custom_price_list_reference;
+// 	const percentage = parseFloat(row.custom_price_list_percentage_) || 0;
+
+// 	if (!price_list) {
+// 		frappe.model.set_value(
+// 			cdt,
+// 			cdn,
+// 			"custom_calculated_price",
+// 			0
+// 		);
+// 		return;
+// 	}
+
+// 	let base_price = 0;
+
+// 	if (price_list === "Retail") {
+// 		base_price = parseFloat(row.custom_retail_price) || 0;
+// 	} else if (price_list === "Grosir") {
+// 		base_price = parseFloat(row.custom_grosir_price) || 0;
+// 	} else if (price_list === "Marketplace") {
+// 		base_price = parseFloat(row.custom_marketplace_price) || 0;
+// 	}
+
+// 	if (!base_price) {
+// 		frappe.model.set_value(
+// 			cdt,
+// 			cdn,
+// 			"custom_calculated_price",
+// 			0
+// 		);
+// 		return;
+// 	}
+
+// 	const calculated_price = (base_price * percentage / 100);
+
+// 	frappe.model.set_value(
+// 		cdt,
+// 		cdn,
+// 		"custom_calculated_price",
+// 		calculated_price
+// 	);
+// }
+
 function calculate_custom_price(frm, cdt, cdn) {
 	const row = locals[cdt][cdn];
 
 	const price_list = row.custom_price_list_reference;
 	const percentage = parseFloat(row.custom_price_list_percentage_) || 0;
 
-	if (!price_list) {
+	if (!price_list || !row.item_code) {
 		frappe.model.set_value(
 			cdt,
 			cdn,
@@ -15,35 +61,170 @@ function calculate_custom_price(frm, cdt, cdn) {
 		return;
 	}
 
-	let base_price = 0;
+	frappe.call({
+		method: "frappe.client.get_list",
+		args: {
+			doctype: "Item Price",
+			filters: {
+				item_code: row.item_code,
+				price_list: price_list
+			},
+			fields: [
+				"price_list_rate",
+				"valid_from"
+			],
+			order_by: "valid_from desc, creation desc",
+			limit_page_length: 1
+		},
+		callback: function(r) {
+			const price = r.message && r.message.length
+				? r.message[0]
+				: null;
 
-	if (price_list === "Retail") {
-		base_price = parseFloat(row.custom_retail_price) || 0;
-	} else if (price_list === "Grosir") {
-		base_price = parseFloat(row.custom_grosir_price) || 0;
-	} else if (price_list === "Marketplace") {
-		base_price = parseFloat(row.custom_marketplace_price) || 0;
-	}
+			if (!price) {
+				frappe.model.set_value(
+					cdt,
+					cdn,
+					"custom_calculated_price",
+					0
+				);
+				return;
+			}
 
-	if (!base_price) {
-		frappe.model.set_value(
-			cdt,
-			cdn,
-			"custom_calculated_price",
-			0
-		);
-		return;
-	}
+			const base_price = parseFloat(price.price_list_rate) || 0;
 
-	const calculated_price = (base_price * percentage / 100);
+			const calculated_price =
+				base_price * percentage / 100;
 
-	frappe.model.set_value(
-		cdt,
-		cdn,
-		"custom_calculated_price",
-		calculated_price
-	);
+			frappe.model.set_value(
+				cdt,
+				cdn,
+				"custom_calculated_price",
+				calculated_price
+			).then(() => {
+				apply_custom_calculated_price(frm, cdt, cdn);
+			});
+		}
+	});
 }
+
+
+
+// function apply_custom_price_to_items(frm) {
+//     const price_list = frm.doc.custom_price_list_reference || "";
+//     const percentage = parseFloat(frm.doc.custom_price_list_percentage_) || 0;
+
+//     (frm.doc.items || []).forEach(row => {
+
+//         frappe.model.set_value(
+//             row.doctype,
+//             row.name,
+//             "custom_price_list_reference",
+//             price_list
+//         );
+
+//         frappe.model.set_value(
+//             row.doctype,
+//             row.name,
+//             "custom_price_list_percentage_",
+//             percentage
+//         );
+
+//         calculate_custom_price(
+//             frm,
+//             row.doctype,
+//             row.name
+//         );
+//     });
+// }
+
+function apply_custom_price_to_items(frm) {
+	const price_list = frm.doc.custom_price_list_reference || "";
+	const percentage = parseFloat(frm.doc.custom_price_list_percentage_) || 0;
+
+	(frm.doc.items || []).forEach(row => {
+
+		row.custom_price_list_reference = price_list;
+		row.custom_price_list_percentage_ = percentage;
+
+		calculate_custom_price(
+			frm,
+			row.doctype,
+			row.name
+		);
+	});
+
+	frm.refresh_field("items");
+}
+
+
+function apply_custom_calculated_price(frm, cdt, cdn) {
+	const row = locals[cdt][cdn];
+
+	const price_list = row.custom_price_list_reference;
+	const calculated_price =
+		parseFloat(row.custom_calculated_price) || 0;
+
+	if (!price_list || !row.item_code) {
+		return;
+	}
+
+	frappe.call({
+		method: "frappe.client.get_list",
+		args: {
+			doctype: "Item Price",
+			filters: {
+				item_code: row.item_code,
+				price_list: price_list
+			},
+			fields: [
+				"price_list_rate",
+				"valid_from"
+			],
+			order_by: "valid_from desc, creation desc",
+			limit_page_length: 1
+		},
+		callback: function(r) {
+			const price = r.message && r.message.length
+				? r.message[0]
+				: null;
+
+			if (!price) {
+				return;
+			}
+
+			const base_price =
+				parseFloat(price.price_list_rate) || 0;
+
+			const final_price =
+				base_price + calculated_price;
+
+			if (price_list === "Retail") {
+				frappe.model.set_value(
+					cdt,
+					cdn,
+					"custom_retail_price",
+					final_price
+				);
+			} else if (price_list === "Grosir") {
+				frappe.model.set_value(
+					cdt,
+					cdn,
+					"custom_grosir_price",
+					final_price
+				);
+			} else if (price_list === "MarketPlace") {
+				frappe.model.set_value(
+					cdt,
+					cdn,
+					"custom_marketplace_price",
+					final_price
+				);
+			}
+		}
+	});
+}
+
 
 function set_axtra_expense_account(frm, row = null) {
 	console.log("set_axtra_expense_account called", {
@@ -114,6 +295,12 @@ frappe.ui.form.on("Purchase Invoice", {
 			set_company_filter(frm);
 		}
 	},
+	custom_price_list_reference(frm) { 
+		apply_custom_price_to_items(frm); 
+	}, 
+	custom_price_list_percentage_(frm) { 
+		apply_custom_price_to_items(frm); 
+	},
 	supplier: function(frm) {
 		if (frm.doc.supplier) {
 			set_company_filter(frm);
@@ -131,14 +318,10 @@ frappe.ui.form.on("Purchase Invoice", {
 	company(frm){
 		set_axtra_expense_account(frm);
 	},
-	refresh(frm){
-
+	refresh(frm) {
 		hide_perm(frm);
-
 		custom_get_item_from_pinv_with_lcv(frm);
-
 		toggle_manual_distribution(frm);
-
 
 		frm.set_df_property(
 			"additional_discount_percentage",
@@ -154,18 +337,34 @@ frappe.ui.form.on("Purchase Invoice", {
 
 		setup_discount_input(frm);
 
+		const item_grid = frm.fields_dict.items.grid;
+
+		item_grid.update_docfield_property(
+			"discount_percentage",
+			"hidden",
+			1
+		);
+
+		item_grid.update_docfield_property(
+			"discount_amount",
+			"hidden",
+			1
+		);
+
+		frm.refresh_field("items");
+
 		/////pinv forwader
-		 if (frm.doc.docstatus === 1 &&
+		if (
+			frm.doc.docstatus === 1 &&
 			flt(frm.doc.custom_lcv_total_taxes_and_charges) > 0 &&
-			frm.doc.custom_forwarder) {
-
-				frm.add_custom_button(__('PINV Forwarder'), function() {
-						frappe.model.open_mapped_doc({
-							method: "customer_display.custom_standard.purchase_invoice_custom.create_forwarder_pinv",
-							frm: frm
-						});
-				}, __('Create'));
-
+			frm.doc.custom_forwarder
+		) {
+			frm.add_custom_button(__('PINV Forwarder'), function() {
+				frappe.model.open_mapped_doc({
+					method: "customer_display.custom_standard.purchase_invoice_custom.create_forwarder_pinv",
+					frm: frm
+				});
+			}, __('Create'));
 		}
 			
 		////
@@ -243,47 +442,207 @@ function set_item_cost_info(frm, cdt, cdn) {
 }
 
 frappe.ui.form.on("Purchase Invoice Item", {
-	custom_price_list_reference(frm, cdt, cdn) {
+
+    custom_discount_percentage_data(frm, cdt, cdn) {
+		const row = locals[cdt][cdn];
+
+		if (!row || row._discount_syncing) {
+			return;
+		}
+
+		row._discount_syncing = true;
+
+		const value = String(row.custom_discount_percentage_data || "")
+			.trim();
+
+		const number_value = value === ""
+			? 0
+			: parseFloat(value);
+
+		frappe.model.set_value(
+			cdt,
+			cdn,
+			"discount_percentage",
+			isNaN(number_value) ? 0 : number_value
+		).then(() => {
+			const current_row = locals[cdt][cdn];
+
+			if (current_row) {
+				current_row.custom_discount_amount_data =
+					flt(current_row.discount_amount)
+						? String(flt(current_row.discount_amount))
+						: "";
+			}
+
+			if (current_row) {
+				current_row._discount_syncing = false;
+			}
+		});
+	},
+
+	custom_discount_amount_data(frm, cdt, cdn) {
+		const row = locals[cdt][cdn];
+
+		if (!row || row._discount_syncing) {
+			return;
+		}
+
+		row._discount_syncing = true;
+
+		const value = String(row.custom_discount_amount_data || "")
+			.trim();
+
+		const number_value = value === ""
+			? 0
+			: parseFloat(value);
+
+		frappe.model.set_value(
+			cdt,
+			cdn,
+			"discount_amount",
+			isNaN(number_value) ? 0 : number_value
+		).then(() => {
+			const current_row = locals[cdt][cdn];
+
+			if (current_row) {
+				current_row.custom_discount_percentage_data =
+					flt(current_row.discount_percentage)
+						? String(flt(current_row.discount_percentage))
+						: "";
+			}
+
+			if (current_row) {
+				current_row._discount_syncing = false;
+			}
+		});
+	},
+
+    discount_percentage(frm, cdt, cdn) {
+        const row = locals[cdt][cdn];
+
+        if (!row || row._discount_syncing) {
+            return;
+        }
+
+        row.custom_discount_percentage_data =
+            flt(row.discount_percentage)
+                ? String(flt(row.discount_percentage))
+                : "";
+
+        row.custom_discount_amount_data =
+            flt(row.discount_amount)
+                ? String(flt(row.discount_amount))
+                : "";
+    },
+
+    discount_amount(frm, cdt, cdn) {
+        const row = locals[cdt][cdn];
+
+        if (!row || row._discount_syncing) {
+            return;
+        }
+
+        row.custom_discount_amount_data =
+            flt(row.discount_amount)
+                ? String(flt(row.discount_amount))
+                : "";
+
+        row.custom_discount_percentage_data =
+            flt(row.discount_percentage)
+                ? String(flt(row.discount_percentage))
+                : "";
+    },
+
+    custom_price_list_reference(frm, cdt, cdn) {
         calculate_custom_price(frm, cdt, cdn);
     },
 
     custom_price_list_percentage_(frm, cdt, cdn) {
         calculate_custom_price(frm, cdt, cdn);
     },
-	item_code(frm, cdt, cdn) {
-		fill_item_price(frm, cdt, cdn);
-		set_item_cost_info(frm, cdt, cdn);
 
-		sync_items_to_lcv(frm);
-		set_total_taxes_and_charges(frm);
-		set_applicable_charges_for_item(frm);
-	},
-	qty(frm, cdt, cdn) {
-		sync_items_to_lcv(frm);
-		set_total_taxes_and_charges(frm);
-		set_applicable_charges_for_item(frm);
-	},
-	rate(frm, cdt, cdn) {
-		sync_items_to_lcv(frm);
-		set_total_taxes_and_charges(frm);
-		set_applicable_charges_for_item(frm);
-	},
-	amount(frm, cdt, cdn) {
-		sync_items_to_lcv(frm);
-		set_total_taxes_and_charges(frm);
-		set_applicable_charges_for_item(frm);
-	},
-	custom_lcv_item_remove(frm, cdt, cdn) {
-		sync_items_to_lcv(frm);
-		set_total_taxes_and_charges(frm);
-		set_applicable_charges_for_item(frm);
-	},
-	remove(frm, cdt, cdn) {
-		sync_items_to_lcv(frm);
-		set_total_taxes_and_charges(frm);
-		set_applicable_charges_for_item(frm);
-	}
+    item_code(frm, cdt, cdn) {
+        fill_item_price(frm, cdt, cdn);
+        set_item_cost_info(frm, cdt, cdn);
+        sync_items_to_lcv(frm);
+        set_total_taxes_and_charges(frm);
+        set_applicable_charges_for_item(frm);
+    },
+
+    qty(frm, cdt, cdn) {
+        sync_items_to_lcv(frm);
+        set_total_taxes_and_charges(frm);
+        set_applicable_charges_for_item(frm);
+    },
+
+    rate(frm, cdt, cdn) {
+        sync_items_to_lcv(frm);
+        set_total_taxes_and_charges(frm);
+        set_applicable_charges_for_item(frm);
+    },
+
+    amount(frm, cdt, cdn) {
+        sync_items_to_lcv(frm);
+        set_total_taxes_and_charges(frm);
+        set_applicable_charges_for_item(frm);
+    },
+
+    custom_lcv_item_remove(frm, cdt, cdn) {
+        sync_items_to_lcv(frm);
+        set_total_taxes_and_charges(frm);
+        set_applicable_charges_for_item(frm);
+    },
+
+    remove(frm, cdt, cdn) {
+        sync_items_to_lcv(frm);
+        set_total_taxes_and_charges(frm);
+        set_applicable_charges_for_item(frm);
+    }
+
 });
+
+// frappe.ui.form.on("Purchase Invoice Item", {
+// 	custom_price_list_reference(frm, cdt, cdn) {
+//         calculate_custom_price(frm, cdt, cdn);
+//     },
+
+//     custom_price_list_percentage_(frm, cdt, cdn) {
+//         calculate_custom_price(frm, cdt, cdn);
+//     },
+// 	item_code(frm, cdt, cdn) {
+// 		fill_item_price(frm, cdt, cdn);
+// 		set_item_cost_info(frm, cdt, cdn);
+
+// 		sync_items_to_lcv(frm);
+// 		set_total_taxes_and_charges(frm);
+// 		set_applicable_charges_for_item(frm);
+// 	},
+// 	qty(frm, cdt, cdn) {
+// 		sync_items_to_lcv(frm);
+// 		set_total_taxes_and_charges(frm);
+// 		set_applicable_charges_for_item(frm);
+// 	},
+// 	rate(frm, cdt, cdn) {
+// 		sync_items_to_lcv(frm);
+// 		set_total_taxes_and_charges(frm);
+// 		set_applicable_charges_for_item(frm);
+// 	},
+// 	amount(frm, cdt, cdn) {
+// 		sync_items_to_lcv(frm);
+// 		set_total_taxes_and_charges(frm);
+// 		set_applicable_charges_for_item(frm);
+// 	},
+// 	custom_lcv_item_remove(frm, cdt, cdn) {
+// 		sync_items_to_lcv(frm);
+// 		set_total_taxes_and_charges(frm);
+// 		set_applicable_charges_for_item(frm);
+// 	},
+// 	remove(frm, cdt, cdn) {
+// 		sync_items_to_lcv(frm);
+// 		set_total_taxes_and_charges(frm);
+// 		set_applicable_charges_for_item(frm);
+// 	}
+// });
 
 frappe.ui.form.on("PINV LCV Taxes and Charges", {
 	expense_account(frm, cdt, cdn) {
@@ -1073,3 +1432,5 @@ function set_custom_input_value(
 
 	frm.doc[fieldname] = display_value;
 }
+
+

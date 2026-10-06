@@ -183,6 +183,10 @@ def split_pos_invoice(doc, method):
                 "due_date": pos.due_date or pos.posting_date,
                 "currency": pos.currency,
                 "price_list": pos.selling_price_list,
+                
+                # Harga dari POS sudah final
+                "ignore_pricing_rule": 1,
+                
                 "redeem_loyalty_points": 1 if loyalty_used else 0,
                 "loyalty_points": 0,
                 "cost_center": frappe.get_doc("Company", company).cost_center,

@@ -79,3 +79,56 @@ def get_item_from_scan(scan_value):
         )
 
     return item_code
+
+
+@frappe.whitelist()
+def search_items_for_pricing_rule(
+    txt=None,
+    start=0,
+    page_length=20,
+    supplier=None,
+    brand=None
+):
+    txt = txt or ""
+    start = int(start or 0)
+    page_length = int(page_length or 20)
+
+    filters = {
+        "disabled": 0,
+        "has_variants": 0,
+    }
+
+    if supplier:
+        filters["custom_vendor"] = supplier
+
+    if brand:
+        filters["brand"] = brand
+
+    or_filters = []
+
+    if txt:
+        if "%" in txt:
+            pattern = txt
+        else:
+            pattern = f"{txt}%"
+
+        or_filters = [
+            ["Item", "name", "like", pattern],
+            ["Item", "item_name", "like", pattern],
+        ]
+
+    return frappe.get_list(
+        "Item",
+        filters=filters,
+        or_filters=or_filters,
+        fields=[
+            "name",
+            "item_name",
+            "stock_uom",
+            "item_group",
+            "brand",
+        ],
+        order_by="name asc",
+        start=start,
+        page_length=page_length,
+    )

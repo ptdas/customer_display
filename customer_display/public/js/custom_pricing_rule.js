@@ -44,7 +44,11 @@ frappe.ui.form.on('Pricing Rule', {
         tambah_item_hasil_scan(frm);
     },
     custom_get_item(frm) {
-        get_items(frm);
+        console.log("===== CUSTOM GET ITEM TRIGGERED =====");
+        console.log("Time:", new Date().toISOString());
+        console.log("Scan value:", frm.doc.scan_item_code);
+        console.log("Current items:", (frm.doc.items || []).map(d => d.item_code));
+        get_filtered_items(frm);
     },
     warehouse(frm) {
         if (frm.doc.warehouse) {
@@ -59,6 +63,24 @@ frappe.ui.form.on('Pricing Rule', {
     refresh(frm) {
         set_item_query(frm);
 
+        // Add Multiple di bawah child table Items
+        const items_field = frm.fields_dict.items;
+
+        if (items_field && items_field.grid) {
+            const grid = items_field.grid;
+
+            if (!grid.__add_multiple_added) {
+                grid.add_custom_button(
+                    __("Add Multiple"),
+                    function () {
+                        open_item_selector(frm);
+                    }
+                );
+
+                grid.__add_multiple_added = true;
+            }
+        }
+
         if (!frm.doc.name || frm.is_new()) return;
 
         frm.add_custom_button(__("Report Item Impact"), function () {
@@ -68,6 +90,171 @@ frappe.ui.form.on('Pricing Rule', {
         });
     }
 });
+
+function open_item_selector(frm) {
+    let page = 0;
+    const page_length = 20;
+
+    const d = new frappe.ui.Dialog({
+        title: __('Select Item'),
+        fields: [
+            {
+                fieldname: 'txt',
+                fieldtype: 'Data',
+                label: __('Beginning with'),
+                description: __('You can use wildcard %')
+            },
+            {
+                fieldname: 'results',
+                fieldtype: 'HTML'
+            },
+            {
+                fieldname: 'more',
+                fieldtype: 'Button',
+                label: __('More')
+            }
+        ],
+        primary_action_label: __('Search'),
+        primary_action() {
+            page = 0;
+            search_items();
+        }
+    });
+
+    d.show();
+
+    d.fields_dict.more.$wrapper.hide();
+
+    d.fields_dict.more.$input.on('click', function () {
+        page++;
+        search_items(true);
+    });
+
+    function search_items(append = false) {
+        const txt = d.get_value('txt') || '';
+
+        frappe.call({
+            method: 'customer_display.custom_standard.pricing_rule_custom.search_items_for_pricing_rule',
+            args: {
+                txt: txt,
+                start: page * page_length,
+                page_length: page_length,
+                supplier: frm.doc.custom_item_supplier,
+                brand: frm.doc.custom_item_brand
+            },
+            freeze: true,
+            freeze_message: __('Searching Items...'),
+            callback(r) {
+                const items = r.message || [];
+
+                if (!append) {
+                    d.fields_dict.results.$wrapper.html('');
+                }
+
+                if (!items.length && !append) {
+                    d.fields_dict.results.$wrapper.html(`
+                        <div class="text-muted text-center" style="padding: 20px;">
+                            ${__('No items found')}
+                        </div>
+                    `);
+
+                    d.fields_dict.more.$wrapper.hide();
+                    return;
+                }
+
+                items.forEach(item => {
+                    const row = $(`
+                        <div class="row link-select-row"
+                            data-item-name="${frappe.utils.escape_html(item.item_name || '')}"
+                            data-uom="${frappe.utils.escape_html(item.stock_uom || '')}"
+                            style="cursor:pointer; padding:8px 5px;">
+                            <div class="col-xs-4">
+                                <b>
+                                    <a href="#" data-value="${frappe.utils.escape_html(item.name)}">
+                                        ${frappe.utils.escape_html(item.name)}
+                                    </a>
+                                </b>
+                            </div>
+
+                            <div class="col-xs-8">
+                                <span class="text-muted">
+                                    ${frappe.utils.escape_html(
+                                        [
+                                            item.item_name,
+                                            item.item_group,
+                                            item.brand,
+                                            item.name
+                                        ].filter(Boolean).join(', ')
+                                    )}
+                                </span>
+                            </div>
+                        </div>
+                    `);
+
+                    row.on('click', function (e) {
+                        e.preventDefault();
+
+                        const item_code = $(this)
+                            .find('a')
+                            .attr('data-value');
+
+                        const item_name = $(this).attr('data-item-name');
+                        const uom = $(this).attr('data-uom');
+
+                        open_qty_dialog(frm, item_code, item_name, uom);
+                    });
+
+                    d.fields_dict.results.$wrapper.append(row);
+                });
+
+                if (items.length >= page_length) {
+                    d.fields_dict.more.$wrapper.show();
+                } else {
+                    d.fields_dict.more.$wrapper.hide();
+                }
+            }
+        });
+    }
+
+    // langsung tampilkan item seperti Select Item Sales Order
+    search_items();
+}
+
+function open_qty_dialog(frm, item_code, item_name, uom) {
+    frappe.confirm(
+        __('Add item <b>{0}</b> - {1} to the Items table?', [
+            item_code,
+            item_name || ''
+        ]),
+        function () {
+            const existing = (frm.doc.items || []).find(
+                row => row.item_code === item_code
+            );
+
+            if (existing) {
+                frappe.show_alert({
+                    message: __('{0} is already in the Items table', [item_code]),
+                    indicator: 'orange'
+                });
+                return;
+            }
+
+            const row = frm.add_child('items');
+
+            row.item_code = item_code;
+            row.custom_item_name = item_name || '';
+            row.uom = uom || '';
+
+            frm.refresh_field('items');
+            frm.dirty();
+
+            frappe.show_alert({
+                message: __('{0} added', [item_code]),
+                indicator: 'green'
+            });
+        }
+    );
+}
 
 
 function set_item_query(frm) {
@@ -89,7 +276,10 @@ function set_item_query(frm) {
     };
 }
 
-function get_items(frm) {
+function get_filtered_items(frm) {
+    console.log("===== GET ITEMS START =====");
+    console.log("Before clear:", (frm.doc.items || []).map(d => d.item_code));
+
     frappe.call({
         method: 'customer_display.custom_standard.pricing_rule_custom.get_filtered_items',
         args: {
@@ -101,7 +291,8 @@ function get_items(frm) {
         callback(r) {
             if (!r.message) return;
 
-            frm.clear_table('items');
+            // aku matikan karna kadang fungsi ini ikut ke triger waktu scan barcode
+            // frm.clear_table('items');
 
             r.message.forEach(item => {
                 let row = frm.add_child('items');

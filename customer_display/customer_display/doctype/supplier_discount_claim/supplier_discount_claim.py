@@ -201,74 +201,95 @@ class SupplierDiscountClaim(Document):
 
 		return result
 
-	def get_company_from_supplier(self):
-		"""
-		Menentukan company berdasarkan cabang user.
+	# def get_company_from_supplier(self):
+	# 	"""
+	# 	Menentukan company berdasarkan cabang user.
 
-		Prioritas:
-		1. BJM -> Supplier.custom_vendor_company_bjm
-		2. BJB -> Supplier.custom_vendor_company
-		"""
+	# 	Prioritas:
+	# 	1. BJM -> Supplier.custom_vendor_company_bjm
+	# 	2. BJB -> Supplier.custom_vendor_company
+	# 	"""
+
+	# 	if not self.supplier:
+	# 		frappe.throw(
+	# 			"Supplier wajib diisi."
+	# 		)
+
+	# 	# Ambil company dari Supplier
+	# 	supplier = frappe.db.get_value(
+	# 		"Supplier",
+	# 		self.supplier,
+	# 		[
+	# 			"custom_vendor_company",
+	# 			"custom_vendor_company_bjm",
+	# 		],
+	# 		as_dict=True,
+	# 	)
+
+	# 	if not supplier:
+	# 		frappe.throw(
+	# 			f"Supplier {self.supplier} tidak ditemukan."
+	# 		)
+
+	# 	user = frappe.get_doc(
+	# 		"User",
+	# 		frappe.session.user
+	# 	)
+
+	# 	user_companies = [
+	# 		row.company
+	# 		for row in user.get("cabang_user") or []
+	# 		if row.company
+	# 	]
+
+	# 	if "BJM" in user_companies:
+
+	# 		company = supplier.custom_vendor_company_bjm
+
+	# 		if not company:
+	# 			frappe.throw(
+	# 				f"Supplier {self.supplier} belum memiliki "
+	# 				"Custom Vendor Company BJM."
+	# 			)
+
+	# 		return company
+
+	# 	if "BJB" in user_companies:
+
+	# 		company = supplier.custom_vendor_company
+
+	# 		if not company:
+	# 			frappe.throw(
+	# 				f"Supplier {self.supplier} belum memiliki "
+	# 				"Custom Vendor Company."
+	# 			)
+
+	# 		return company
+
+	# 	frappe.throw(
+	# 		"User tidak memiliki cabang BJM atau BJB."
+	# 	)
+
+	def get_company_from_supplier(self):
 
 		if not self.supplier:
 			frappe.throw(
 				"Supplier wajib diisi."
 			)
 
-		# Ambil company dari Supplier
-		supplier = frappe.db.get_value(
+		company = frappe.db.get_value(
 			"Supplier",
 			self.supplier,
-			[
-				"custom_vendor_company",
-				"custom_vendor_company_bjm",
-			],
-			as_dict=True,
+			"custom_vendor_company"
 		)
 
-		if not supplier:
+		if not company:
 			frappe.throw(
-				f"Supplier {self.supplier} tidak ditemukan."
+				f"Supplier {self.supplier} belum memiliki "
+				"Custom Vendor Company."
 			)
 
-		user = frappe.get_doc(
-			"User",
-			frappe.session.user
-		)
-
-		user_companies = [
-			row.company
-			for row in user.get("cabang_user") or []
-			if row.company
-		]
-
-		if "BJM" in user_companies:
-
-			company = supplier.custom_vendor_company_bjm
-
-			if not company:
-				frappe.throw(
-					f"Supplier {self.supplier} belum memiliki "
-					"Custom Vendor Company BJM."
-				)
-
-			return company
-
-		if "BJB" in user_companies:
-
-			company = supplier.custom_vendor_company
-
-			if not company:
-				frappe.throw(
-					f"Supplier {self.supplier} belum memiliki "
-					"Custom Vendor Company."
-				)
-
-			return company
-
-		frappe.throw(
-			"User tidak memiliki cabang BJM atau BJB."
-		)
+		return company
 
 	def on_submit(self):
 

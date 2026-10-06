@@ -25,6 +25,235 @@ frappe.pages["point-of-sale"].on_page_load = function (wrapper) {
 		wrapper.pos = new erpnext.PointOfSale.Controller(wrapper);
 		window.cur_pos = wrapper.pos;
 
+        // =====================================================
+        // POS INVOICE OVERRIDE AUTHORIZATION
+        // 1 AUTH = 1 ACTIVE POS INVOICE
+        // =====================================================
+
+        window.cur_pos.pos_authorization = {
+            authorized: false,
+            auth_provider: null,
+            auth_in_progress: null
+        };
+
+        window.cur_pos.pos_auth_last_is_new = null;
+
+        window.cur_pos.authorize_current_invoice = async function (
+            reason = "POS Invoice Override Authorization"
+        ) {
+
+            const frm = this.frm || window.cur_frm;
+
+            if (!frm || frm.doctype !== "POS Invoice") {
+                return false;
+            }
+
+            if (this.pos_authorization?.authorized) {
+                return true;
+            }
+
+            if (this.pos_authorization?.auth_in_progress) {
+                return await this.pos_authorization.auth_in_progress;
+            }
+
+            this.pos_authorization.auth_in_progress =
+                new Promise(resolve => {
+
+                    let finished = false;
+                    let submitted = false;
+                    let dialog = null;
+
+                    const finish = (result) => {
+
+                        if (finished) return;
+
+                        finished = true;
+
+                        this.pos_authorization.auth_in_progress = null;
+
+                        resolve(result);
+                    };
+
+                    frappe.dom.unfreeze();
+
+                    dialog = frappe.prompt(
+                        [
+                            {
+                                fieldname: "code",
+                                fieldtype: "Password",
+                                label: __("Authorization Code"),
+                                reqd: 1
+                            }
+                        ],
+
+                        values => {
+
+                            submitted = true;
+
+                            frappe.call({
+                                method: "customer_display.api.verify_pos_code_auth",
+
+                                args: {
+                                    pos_profile: frm.doc.pos_profile,
+                                    code: values.code,
+                                    description: "POS Invoice Override Authorization"
+                                },
+
+                                callback: r => {
+
+                                    if (
+                                        r.message &&
+                                        r.message.valid === true
+                                    ) {
+
+                                        const child = frm.add_child(
+                                            "custom_auth_provider"
+                                        );
+
+                                        child.auth_provider =
+                                            r.message.auth_provider;
+
+                                        child.description =
+                                            __("POS Invoice Override Authorization");
+
+                                        frm.refresh_field(
+                                            "custom_auth_provider"
+                                        );
+
+                                        this.pos_authorization.authorized = true;
+
+                                        this.pos_authorization.auth_provider =
+                                            r.message.auth_provider;
+
+                                        console.log(
+                                            "[POS AUTH] Authorized:",
+                                            r.message.auth_provider
+                                        );
+
+                                        finish(true);
+
+                                    } else {
+
+                                        frappe.msgprint({
+                                            title: __("Authorization Failed"),
+                                            message: __(
+                                                "Authorization code is invalid or not permitted."
+                                            ),
+                                            indicator: "red"
+                                        });
+
+                                        finish(false);
+                                    }
+                                },
+
+                                error: err => {
+
+                                    console.error(
+                                        "[POS AUTH] Verification error:",
+                                        err
+                                    );
+
+                                    frappe.msgprint({
+                                        title: __("Authorization Failed"),
+                                        message: __(
+                                            "Gagal melakukan verifikasi authorization."
+                                        ),
+                                        indicator: "red"
+                                    });
+
+                                    finish(false);
+                                }
+                            });
+                        },
+
+                        __(reason),
+                        __("Submit")
+                    );
+
+                    // ============================================
+                    // USER CLOSE DIALOG TANPA SUBMIT
+                    // ============================================
+
+                    if (dialog) {
+
+                        dialog.onhide = () => {
+
+                            if (!submitted && !finished) {
+
+                                console.log(
+                                    "[POS AUTH] Authorization dialog cancelled."
+                                );
+
+                                finish(false);
+                            }
+                        };
+                    }
+                });
+
+            const result =
+                await this.pos_authorization.auth_in_progress;
+
+            this.pos_authorization.auth_in_progress = null;
+
+            frappe.dom.unfreeze();
+
+            return result;
+        };
+
+
+        // =====================================================
+        // RECORD AUTHORIZED ACTION
+        // =====================================================
+
+        window.cur_pos.record_pos_authorization_action = function (
+            action,
+            item_row = null,
+            extra = ""
+        ) {
+
+            const frm = this.frm || window.cur_frm;
+
+            if (!frm || frm.doctype !== "POS Invoice") {
+                return;
+            }
+
+            if (!this.pos_authorization?.authorized) {
+                console.warn(
+                    "[POS AUTH] Action ignored - invoice not authorized"
+                );
+                return;
+            }
+
+            let description = action;
+
+            if (item_row?.item_code) {
+                description += ` - ${item_row.item_code}`;
+            }
+
+            if (extra) {
+                description += `: ${extra}`;
+            }
+
+            const child = frm.add_child(
+                "custom_auth_provider"
+            );
+
+            child.auth_provider =
+                this.pos_authorization.auth_provider;
+
+            child.description = __(description);
+
+            frm.refresh_field(
+                "custom_auth_provider"
+            );
+
+            console.log(
+                "[POS AUTH ACTION]",
+                child.auth_provider,
+                description
+            );
+        };
+
         // ================== AUTH KHUSUS GROSIR ==================
         window.request_grosir_authorization = async function () {
             console.log("[GROSIR AUTH] called");
@@ -73,11 +302,11 @@ frappe.pages["point-of-sale"].on_page_load = function (wrapper) {
 
 
 
-		let pos_edit_auth = {
-			item_key: null,   
-			fieldname: null,
-			active: false
-		};
+		// let pos_edit_auth = {
+		// 	item_key: null,   
+		// 	fieldname: null,
+		// 	active: false
+		// };
 
         window.pos_spg_default = null;
 
@@ -203,115 +432,720 @@ frappe.pages["point-of-sale"].on_page_load = function (wrapper) {
 	            return fields;
 	        };
 
-			// edit ghata
-			async function request_authorization(req_description) {
-				return await new Promise(resolve => {
+			// // edit ghata
+			// async function request_authorization(req_description) {
+			// 	return await new Promise(resolve => {
 
-					frappe.prompt(
-						[{
-							fieldname: "code",
-							fieldtype: "Password",
-							label: __("Authorization Code"),
-							reqd: 1,
-						}],
-						values => {
-							frappe.call({
-								method: "customer_display.api.verify_pos_code_auth",
-								args: {
-									// user: frappe.session.user,
-									pos_profile: cur_frm.doc.pos_profile,
-                                    code: values.code,
-                                    description: req_description,
-								},
-								callback: r => {
-									if (r.message && r.message.valid === true) {
-                                        let child = cur_frm.add_child("custom_auth_provider");
-                                        child.auth_provider = r.message.auth_provider;
-                                        child.description = __(r.message.description); 
+			// 		frappe.prompt(
+			// 			[{
+			// 				fieldname: "code",
+			// 				fieldtype: "Password",
+			// 				label: __("Authorization Code"),
+			// 				reqd: 1,
+			// 			}],
+			// 			values => {
+			// 				frappe.call({
+			// 					method: "customer_display.api.verify_pos_code_auth",
+			// 					args: {
+			// 						// user: frappe.session.user,
+			// 						pos_profile: cur_frm.doc.pos_profile,
+            //                         code: values.code,
+            //                         description: req_description,
+			// 					},
+			// 					callback: r => {
+			// 						if (r.message && r.message.valid === true) {
+            //                             let child = cur_frm.add_child("custom_auth_provider");
+            //                             child.auth_provider = r.message.auth_provider;
+            //                             child.description = __(r.message.description); 
                                         
-                                        cur_frm.refresh_field("custom_auth_provider"); 
+            //                             cur_frm.refresh_field("custom_auth_provider"); 
 
-										console.log("Authenticator:", r.message.auth_provider); 
-                                        resolve(true);
-									} else {
-										frappe.msgprint({
-											title: __("Authorization Failed"),
-											indicator: "red",
-											message: __("Authorization code is invalid or not permitted.")
-										});
-										resolve(false);
-									}
-								}
-							});
-						},
-						__("Authorization Required"),
-						__("Submit")
-					);
+			// 							console.log("Authenticator:", r.message.auth_provider); 
+            //                             resolve(true);
+			// 						} else {
+			// 							frappe.msgprint({
+			// 								title: __("Authorization Failed"),
+			// 								indicator: "red",
+			// 								message: __("Authorization code is invalid or not permitted.")
+			// 							});
+			// 							resolve(false);
+			// 						}
+			// 					}
+			// 				});
+			// 			},
+			// 			__("Authorization Required"),
+			// 			__("Submit")
+			// 		);
 
-				});
-			}
+			// 	});
+			// }
 
-			function attachFieldListeners(wrapper, fieldnames = [], frm, item) {
+			// function attachFieldListeners(wrapper, fieldnames = [], frm, item) {
 
-				const item_key = item.name || item.item_code;
+			// 	const item_key = item.name || item.item_code;
 
-				fieldnames.forEach(fieldname => {
+			// 	fieldnames.forEach(fieldname => {
 
-					const input = wrapper.querySelector(
-						`input[data-fieldname="${fieldname}"]`
-					);
+			// 		const input = wrapper.querySelector(
+			// 			`input[data-fieldname="${fieldname}"]`
+			// 		);
 
-					if (!input || input.dataset.listenerAttached) return;
+			// 		if (!input || input.dataset.listenerAttached) return;
 
-					input.addEventListener("focus", async () => {
+			// 		input.addEventListener("focus", async () => {
 
-						if (
-							pos_edit_auth.active &&
-							pos_edit_auth.item_key === item_key &&
-							pos_edit_auth.fieldname === fieldname
-						) {
-							return;
-						}
+			// 			if (
+			// 				pos_edit_auth.active &&
+			// 				pos_edit_auth.item_key === item_key &&
+			// 				pos_edit_auth.fieldname === fieldname
+			// 			) {
+			// 				return;
+			// 			}
 
-						const ok = await request_authorization(`Auth ${fieldname}`);
-						if (ok) {
-							pos_edit_auth.active = true;
-							pos_edit_auth.item_key = item_key;
-							pos_edit_auth.fieldname = fieldname;
-							frappe.show_alert("Authorized");
-						} else {
-							input.blur();
-						}
-					});
+			// 			const ok = await request_authorization(`Auth ${fieldname}`);
+			// 			if (ok) {
+			// 				pos_edit_auth.active = true;
+			// 				pos_edit_auth.item_key = item_key;
+			// 				pos_edit_auth.fieldname = fieldname;
+			// 				frappe.show_alert("Authorized");
+			// 			} else {
+			// 				input.blur();
+			// 			}
+			// 		});
 
-					input.addEventListener("change", () => {
-						pos_edit_auth.active = false;
-						pos_edit_auth.item_key = null;
-						pos_edit_auth.fieldname = null;
+			// 		input.addEventListener("change", () => {
+			// 			pos_edit_auth.active = false;
+			// 			pos_edit_auth.item_key = null;
+			// 			pos_edit_auth.fieldname = null;
+
+            //             if (fieldname === "qty") {
+
+            //                 const row = item;
+
+            //                 if (row) {
+            //                     row.discount_percentage = 0;
+            //                     row.discount_amount = 0;
+
+            //                     console.log("🔄 Qty changed → discount reset:", row.item_code);
+
+            //                     if (cur_frm) {
+            //                         cur_frm.refresh_field("items");
+            //                     }
+
+            //                     reset_pos_item_discount_ui(wrapper);
+            //                 }
+            //             }
+
+			// 		});
+
+			// 		input.dataset.listenerAttached = "true";
+			// 	});
+			// }
+            
+            window.pos_auth_suppress_item_discount_log = false;
+            // function attachFieldListeners(wrapper, fieldnames = [], frm, item) {
+
+            //     const item_key = item.name || item.item_code;
+
+            //     fieldnames.forEach(fieldname => {
+
+            //         const input = wrapper.querySelector(
+            //             `input[data-fieldname="${fieldname}"]`
+            //         );
+
+            //         if (!input || input.dataset.listenerAttached) {
+            //             return;
+            //         }
+
+            //         // =================================================
+            //         // SIMPAN NILAI SEBELUM EDIT
+            //         // =================================================
+
+            //         input.addEventListener("focus", async () => {
+
+            //             input.dataset.authOldValue =
+            //                 item[fieldname] ?? input.value ?? "";
+
+            //             const ok =
+            //                 await window.cur_pos.authorize_current_invoice();
+
+            //             if (!ok) {
+            //                 input.blur();
+            //                 return;
+            //             }
+
+            //             frappe.show_alert({
+            //                 message: __("Authorized"),
+            //                 indicator: "green"
+            //             });
+            //         });
+
+
+            //         // =================================================
+            //         // SAAT NILAI BERUBAH
+            //         // =================================================
+
+            //         input.addEventListener("change", () => {
+
+            //             if (
+            //                 window.pos_auth_suppress_item_discount_log &&
+            //                 (
+            //                     fieldname === "discount_percentage" ||
+            //                     fieldname === "discount_amount"
+            //                 )
+            //             ) {
+            //                 input.dataset.authOldValue = "";
+            //                 return;
+            //             }
+
+            //             const old_value =
+            //                 input.dataset.authOldValue ?? "";
+
+            //             const row = item;
+
+            //             if (!row) {
+            //                 return;
+            //             }
+
+            //             let new_value = input.value;
+
+            //             // =============================================
+            //             // QTY
+            //             // =============================================
+
+            //             if (fieldname === "qty") {
+
+            //                 if (old_value != new_value) {
+
+            //                     window.cur_pos.record_pos_authorization_action(
+            //                         "Edit Qty",
+            //                         row,
+            //                         `${old_value} → ${new_value}`
+            //                     );
+            //                 }
+
+            //                 row.discount_percentage = 0;
+            //                 row.discount_amount = 0;
+
+            //                 console.log(
+            //                     "🔄 Qty changed → discount reset:",
+            //                     row.item_code
+            //                 );
+
+            //                 if (cur_frm) {
+            //                     cur_frm.refresh_field("items");
+            //                 }
+
+            //                 reset_pos_item_discount_ui(wrapper);
+            //             }
+
+            //             // =============================================
+            //             // DISCOUNT %
+            //             // =============================================
+
+            //             else if (fieldname === "discount_percentage") {
+
+            //                 if (old_value != new_value) {
+
+            //                     window.cur_pos.record_pos_authorization_action(
+            //                         "Edit Discount",
+            //                         row,
+            //                         `${old_value}% → ${new_value}%`
+            //                     );
+            //                 }
+            //             }
+
+            //             // =============================================
+            //             // DISCOUNT AMOUNT
+            //             // =============================================
+
+            //             else if (fieldname === "discount_amount") {
+
+            //                 if (old_value != new_value) {
+
+            //                     window.cur_pos.record_pos_authorization_action(
+            //                         "Edit Discount Amount",
+            //                         row,
+            //                         `${old_value} → ${new_value}`
+            //                     );
+            //                 }
+            //             }
+
+            //             // =============================================
+            //             // RATE
+            //             // =============================================
+
+            //             else if (fieldname === "rate") {
+
+            //                 if (old_value != new_value) {
+
+            //                     window.cur_pos.record_pos_authorization_action(
+            //                         "Edit Rate",
+            //                         row,
+            //                         `${old_value} → ${new_value}`
+            //                     );
+            //                 }
+            //             }
+
+            //             input.dataset.authOldValue = "";
+            //         });
+
+            //         input.dataset.listenerAttached = "true";
+            //     });
+            // }
+
+            function attachFieldListeners(wrapper, fieldnames = [], frm, item) {
+                if (!item) return;
+
+                fieldnames.forEach((fieldname) => {
+
+                    const input = wrapper.querySelector(
+                        `input[data-fieldname="${fieldname}"]`
+                    );
+
+                    if (!input || input.dataset.listenerAttached) {
+                        return;
+                    }
+
+                    // =====================================================
+                    // FOCUS
+                    // =====================================================
+
+                    input.addEventListener("focus", async () => {
+
+                        input.dataset.authOldValue =
+                            item[fieldname] ?? input.value ?? "";
+
+                        const authorized =
+                            await window.cur_pos.authorize_current_invoice();
+
+                        if (!authorized) {
+                            input.blur();
+                            return;
+                        }
+
+                        frappe.show_alert({
+                            message: __("Authorized"),
+                            indicator: "green"
+                        });
+                    });
+
+
+                    // =====================================================
+                    // CHANGE
+                    // =====================================================
+
+                    input.addEventListener("change", async () => {
+
+                        const old_value =
+                            input.dataset.authOldValue ?? "";
+
+                        const new_value =
+                            input.value ?? "";
+
+                        const row = item;
+
+                        if (!row) {
+                            return;
+                        }
+
+
+                        // =================================================
+                        // QTY
+                        // =================================================
 
                         if (fieldname === "qty") {
 
-                            const row = item;
+                            if (String(old_value) !== String(new_value)) {
 
-                            if (row) {
-                                row.discount_percentage = 0;
-                                row.discount_amount = 0;
+                                window.cur_pos.record_pos_authorization_action(
+                                    "Edit Qty",
+                                    row,
+                                    `${old_value} → ${new_value}`
+                                );
+                            }
 
-                                console.log("🔄 Qty changed → discount reset:", row.item_code);
+                            row.discount_percentage = 0;
+                            row.discount_amount = 0;
 
-                                if (cur_frm) {
-                                    cur_frm.refresh_field("items");
+                            console.log(
+                                "🔄 Qty changed → discount reset:",
+                                row.item_code
+                            );
+
+                            if (frm) {
+                                frm.refresh_field("items");
+                            }
+
+                            reset_pos_item_discount_ui(wrapper);
+                        }
+
+
+                        // =================================================
+                        // DISCOUNT PERCENTAGE
+                        // =================================================
+
+                        else if (fieldname === "discount_percentage") {
+
+                            if (String(old_value) !== String(new_value)) {
+
+                                window.cur_pos.record_pos_authorization_action(
+                                    "Edit Discount",
+                                    row,
+                                    `${old_value}% → ${new_value}%`
+                                );
+
+                                // Tandai item sebagai manual discount
+                                row.custom_manual_discount = 1;
+
+                                // Hapus Pricing Rule dari item
+                                row.pricing_rules = "";
+
+                                // Hapus Pricing Rule dari child table POS Invoice
+                                if (frm && Array.isArray(frm.doc.pricing_rules)) {
+
+                                    frm.doc.pricing_rules = frm.doc.pricing_rules.filter(
+                                        pr => pr.item_code !== row.item_code
+                                    );
+
+                                    frm.refresh_field("pricing_rules");
                                 }
 
-                                reset_pos_item_discount_ui(wrapper);
+                                console.log(
+                                    "✅ MANUAL DISCOUNT:",
+                                    row.item_code,
+                                    row.custom_manual_discount
+                                );
+
+                                console.log(
+                                    "🧹 ITEM PRICING RULE CLEARED:",
+                                    row.item_code,
+                                    row.pricing_rules
+                                );
+
+                                console.log(
+                                    "🧹 POS INVOICE PRICING RULE CLEARED FOR:",
+                                    row.item_code
+                                );
+
+                
+                                if (frm) {
+                                    frm.refresh_field("items");
+                                }
+                            }
+
+                            const percentage = flt(new_value);
+
+
+                            // =================================================
+                            // AMBIL PRICE LIST RATE
+                            // =================================================
+
+                            let price_list_rate = 0;
+
+                            // Prioritas 1: field price_list_rate di row
+                            if (row.price_list_rate) {
+                                price_list_rate = flt(row.price_list_rate);
+                            }
+
+                            // Prioritas 2: field price_list_rate di input
+                            if (!price_list_rate) {
+
+                                const price_list_rate_input =
+                                    wrapper.querySelector(
+                                        'input[data-fieldname="price_list_rate"]'
+                                    );
+
+                                if (price_list_rate_input) {
+                                    price_list_rate =
+                                        flt(price_list_rate_input.value);
+                                }
+                            }
+
+
+                            console.log(
+                                "=============================="
+                            );
+
+                            console.log(
+                                "DISCOUNT % CHANGE"
+                            );
+
+                            console.log(
+                                "percentage:",
+                                percentage
+                            );
+
+                            console.log(
+                                "price_list_rate:",
+                                price_list_rate
+                            );
+
+                            console.log(
+                                "row.price_list_rate:",
+                                row.price_list_rate
+                            );
+
+                            console.log(
+                                "row.rate:",
+                                row.rate
+                            );
+
+
+                            // =================================================
+                            // HITUNG DISCOUNT AMOUNT
+                            // BERDASARKAN PRICE LIST RATE
+                            // =================================================
+
+                            const discount_amount =
+                                price_list_rate > 0
+                                    ? (price_list_rate * percentage) / 100
+                                    : 0;
+
+
+                            console.log(
+                                "discount amount hasil:",
+                                discount_amount
+                            );
+
+
+                            // =================================================
+                            // UPDATE ROW
+                            // =================================================
+
+                            row.discount_percentage = percentage;
+                            row.discount_amount = discount_amount;
+
+
+                            // =================================================
+                            // UPDATE INPUT DISCOUNT AMOUNT
+                            // =================================================
+
+                            const amount_input = wrapper.querySelector(
+                                'input[data-fieldname="discount_amount"]'
+                            );
+
+                            if (amount_input) {
+
+                                amount_input.value =
+                                    discount_amount;
+
+                                console.log(
+                                    "amount input updated:",
+                                    amount_input.value
+                                );
+                            }
+
+
+                            // =================================================
+                            // UPDATE TOTAL POS
+                            // =================================================
+
+                            if (
+                                window.cur_pos &&
+                                typeof window.cur_pos.calculate_totals === "function"
+                            ) {
+                                window.cur_pos.calculate_totals();
                             }
                         }
 
-					});
 
-					input.dataset.listenerAttached = "true";
-				});
-			}
+                        // =================================================
+                        // DISCOUNT AMOUNT
+                        // =================================================
+
+                        else if (fieldname === "discount_amount") {
+
+                            if (String(old_value) !== String(new_value)) {
+
+                                window.cur_pos.record_pos_authorization_action(
+                                    "Edit Discount Amount",
+                                    row,
+                                    `${old_value} → ${new_value}`
+                                );
+
+                                row.custom_manual_discount = 1;
+
+                                // Hapus Pricing Rule dari item
+                                row.pricing_rules = "";
+
+                                // Hapus Pricing Rule dari child table POS Invoice
+                                if (frm && Array.isArray(frm.doc.pricing_rules)) {
+
+                                    frm.doc.pricing_rules = frm.doc.pricing_rules.filter(
+                                        pr => pr.item_code !== row.item_code
+                                    );
+
+                                    frm.refresh_field("pricing_rules");
+                                }
+
+                                console.log(
+                                    "✅ MANUAL DISCOUNT:",
+                                    row.item_code,
+                                    row.custom_manual_discount
+                                );
+
+                                console.log(
+                                    "🧹 ITEM PRICING RULE CLEARED:",
+                                    row.item_code,
+                                    row.pricing_rules
+                                );
+
+                                console.log(
+                                    "🧹 POS INVOICE PRICING RULE CLEARED FOR:",
+                                    row.item_code
+                                );
+
+                                if (frm) {
+                                    frm.refresh_field("items");
+                                }
+                            }
+
+                            const discount_amount =
+                                flt(new_value);
+
+
+                            // =================================================
+                            // AMBIL PRICE LIST RATE
+                            // =================================================
+
+                            let price_list_rate = 0;
+
+                            // Prioritas 1: row.price_list_rate
+                            if (row.price_list_rate) {
+                                price_list_rate = flt(row.price_list_rate);
+                            }
+
+                            // Prioritas 2: input price_list_rate
+                            if (!price_list_rate) {
+
+                                const price_list_rate_input =
+                                    wrapper.querySelector(
+                                        'input[data-fieldname="price_list_rate"]'
+                                    );
+
+                                if (price_list_rate_input) {
+                                    price_list_rate =
+                                        flt(price_list_rate_input.value);
+                                }
+                            }
+
+
+                            console.log(
+                                "=============================="
+                            );
+
+                            console.log(
+                                "DISCOUNT AMOUNT CHANGE"
+                            );
+
+                            console.log(
+                                "discount amount:",
+                                discount_amount
+                            );
+
+                            console.log(
+                                "price_list_rate:",
+                                price_list_rate
+                            );
+
+                            console.log(
+                                "row.price_list_rate:",
+                                row.price_list_rate
+                            );
+
+                            console.log(
+                                "row.rate:",
+                                row.rate
+                            );
+
+
+                            // =================================================
+                            // HITUNG PERCENTAGE
+                            // BERDASARKAN PRICE LIST RATE
+                            // =================================================
+
+                            const percentage =
+                                price_list_rate > 0
+                                    ? (discount_amount / price_list_rate) * 100
+                                    : 0;
+
+
+                            console.log(
+                                "percentage hasil:",
+                                percentage
+                            );
+
+
+                            // =================================================
+                            // UPDATE ROW
+                            // =================================================
+
+                            row.discount_amount =
+                                discount_amount;
+
+                            row.discount_percentage =
+                                percentage;
+
+
+                            // =================================================
+                            // UPDATE INPUT PERCENTAGE
+                            // =================================================
+
+                            const percentage_input =
+                                wrapper.querySelector(
+                                    'input[data-fieldname="discount_percentage"]'
+                                );
+
+                            if (percentage_input) {
+
+                                percentage_input.value =
+                                    percentage;
+
+                                console.log(
+                                    "percentage input updated:",
+                                    percentage_input.value
+                                );
+                            }
+
+
+                            // =================================================
+                            // UPDATE TOTAL POS
+                            // =================================================
+
+                            if (
+                                window.cur_pos &&
+                                typeof window.cur_pos.calculate_totals === "function"
+                            ) {
+                                window.cur_pos.calculate_totals();
+                            }
+                        }
+
+
+                        // =================================================
+                        // RATE
+                        // =================================================
+
+                        else if (fieldname === "rate") {
+
+                            if (String(old_value) !== String(new_value)) {
+
+                                window.cur_pos.record_pos_authorization_action(
+                                    "Edit Rate",
+                                    row,
+                                    `${old_value} → ${new_value}`
+                                );
+                            }
+                        }
+
+
+                        input.dataset.authOldValue = "";
+                    });
+
+
+                    input.dataset.listenerAttached = "true";
+                });
+            }
 
             function reset_pos_item_discount_ui(wrapper) {
                 if (!wrapper) return;
@@ -324,16 +1158,36 @@ frappe.pages["point-of-sale"].on_page_load = function (wrapper) {
                     'input[data-fieldname="discount_amount"]'
                 );
 
-                if (percent_input) {
-                    percent_input.value = 0;
-                    percent_input.dispatchEvent(new Event("input", { bubbles: true }));
-                    percent_input.dispatchEvent(new Event("change", { bubbles: true }));
-                }
+                window.pos_auth_suppress_item_discount_log = true;
 
-                if (amount_input) {
-                    amount_input.value = 0;
-                    amount_input.dispatchEvent(new Event("input", { bubbles: true }));
-                    amount_input.dispatchEvent(new Event("change", { bubbles: true }));
+                try {
+
+                    if (percent_input) {
+                        percent_input.value = 0;
+
+                        percent_input.dispatchEvent(
+                            new Event("input", { bubbles: true })
+                        );
+
+                        percent_input.dispatchEvent(
+                            new Event("change", { bubbles: true })
+                        );
+                    }
+
+                    if (amount_input) {
+                        amount_input.value = 0;
+
+                        amount_input.dispatchEvent(
+                            new Event("input", { bubbles: true })
+                        );
+
+                        amount_input.dispatchEvent(
+                            new Event("change", { bubbles: true })
+                        );
+                    }
+
+                } finally {
+                    window.pos_auth_suppress_item_discount_log = false;
                 }
             }
 
@@ -368,50 +1222,150 @@ frappe.pages["point-of-sale"].on_page_load = function (wrapper) {
 
         let discountAuthorized = false;
 
+        // function attachDiscountAuthMultiple() {
+        //     const wrapper = document.querySelector('.add-discount-wrapper');
+        //     if (!wrapper || wrapper.dataset.authAttached) return;
+
+        //     wrapper.addEventListener('click', async (e) => {
+        //         // If already authorized, allow normal interaction
+        //         if (discountAuthorized) return;
+
+        //         // Prevent the click from propagating
+        //         e.preventDefault();
+        //         e.stopPropagation();
+
+        //         // Request authorization
+        //         const ok = await request_pos_authorization("Auth add discounts");
+        //         if (!ok) {
+        //             frappe.show_alert({
+        //                 message: "Authorization failed",
+        //                 indicator: "red"
+        //             });
+        //             return;
+        //         }
+
+        //         // Mark as authorized
+        //         discountAuthorized = true;
+        //         frappe.show_alert("Authorized! You can now add discounts.");
+
+        //         // Add visual indicator (optional)
+        //         wrapper.style.opacity = '1';
+        //         wrapper.style.pointerEvents = 'auto';
+        //     }, true); // Use capture phase
+
+        //     // Reset authorization when discount is applied or cleared
+        //     const resetAuth = () => {
+        //         discountAuthorized = false;
+        //         wrapper.style.opacity = ''; // Reset visual indicator
+        //     };
+
+        //     // Listen for discount changes to reset auth
+        //     $(document).on('change', '.add-discount-field input', resetAuth);
+
+        //     wrapper.dataset.authAttached = "true";
+            
+        //     // Optional: Add visual indicator that auth is required
+        //     wrapper.style.opacity = '0.6';
+        // }
+
         function attachDiscountAuthMultiple() {
-            const wrapper = document.querySelector('.add-discount-wrapper');
-            if (!wrapper || wrapper.dataset.authAttached) return;
 
-            wrapper.addEventListener('click', async (e) => {
-                // If already authorized, allow normal interaction
-                if (discountAuthorized) return;
+            const wrapper =
+                document.querySelector(".add-discount-wrapper");
 
-                // Prevent the click from propagating
-                e.preventDefault();
-                e.stopPropagation();
+            if (!wrapper || wrapper.dataset.authAttached) {
+                return;
+            }
 
-                // Request authorization
-                const ok = await request_pos_authorization("Auth add discounts");
-                if (!ok) {
-                    frappe.show_alert({
-                        message: "Authorization failed",
-                        indicator: "red"
-                    });
-                    return;
-                }
+            let allow_discount_once = false;
+            let discount_auth_in_progress = false;
 
-                // Mark as authorized
-                discountAuthorized = true;
-                frappe.show_alert("Authorized! You can now add discounts.");
+            wrapper.addEventListener(
+                "click",
+                async function(e) {
 
-                // Add visual indicator (optional)
-                wrapper.style.opacity = '1';
-                wrapper.style.pointerEvents = 'auto';
-            }, true); // Use capture phase
+                    // =============================================
+                    // CLICK HASIL REPLAY SETELAH AUTH
+                    // =============================================
 
-            // Reset authorization when discount is applied or cleared
-            const resetAuth = () => {
-                discountAuthorized = false;
-                wrapper.style.opacity = ''; // Reset visual indicator
-            };
+                    if (allow_discount_once) {
+                        allow_discount_once = false;
+                        return;
+                    }
 
-            // Listen for discount changes to reset auth
-            $(document).on('change', '.add-discount-field input', resetAuth);
+                    // =============================================
+                    // AUTH SEDANG BERJALAN
+                    // JANGAN BIARKAN CLICK ASLI LEWAT
+                    // =============================================
+
+                    if (discount_auth_in_progress) {
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
+                        return;
+                    }
+
+                    // =============================================
+                    // SUDAH AUTH UNTUK INVOICE INI
+                    // =============================================
+
+                    if (
+                        window.cur_pos?.pos_authorization?.authorized
+                    ) {
+                        return;
+                    }
+
+                    // =============================================
+                    // STOP CLICK ASLI
+                    // =============================================
+
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+
+                    discount_auth_in_progress = true;
+
+                    try {
+
+                        const ok =
+                            await window.cur_pos.authorize_current_invoice();
+
+                        if (!ok) {
+
+                            frappe.show_alert({
+                                message: __("Authorization failed"),
+                                indicator: "red"
+                            });
+
+                            return;
+                        }
+
+                        frappe.show_alert({
+                            message: __("Authorized"),
+                            indicator: "green"
+                        });
+
+                        // =============================================
+                        // REPLAY CLICK ASLI
+                        // =============================================
+
+                        allow_discount_once = true;
+
+                        wrapper.dispatchEvent(
+                            new MouseEvent("click", {
+                                bubbles: true,
+                                cancelable: true,
+                                view: window
+                            })
+                        );
+
+                    } finally {
+                        discount_auth_in_progress = false;
+                    }
+
+                },
+                true
+            );
 
             wrapper.dataset.authAttached = "true";
-            
-            // Optional: Add visual indicator that auth is required
-            wrapper.style.opacity = '0.6';
         }
 
         setInterval(attachDiscountAuthMultiple, 300);
@@ -452,30 +1406,74 @@ function add_custom_pos_container(callback) {
             const desk_theme = frappe.boot?.user?.desk_theme || "Light";
             const is_dark = desk_theme === "Dark";
 
-			if (is_dark) {
-				//DARK MODE
-				new_container.css({
-					background: '#171717',
-					border: '1px solid rgba(255,255,255,0.08)',
-					padding: '16px',
-					marginBottom: '1px',
-					borderRadius: '12px',
-					color: '#e6e6e6'
-				});
-			} else {
-				//LIGHT MODE
-				new_container.css({
-					background: '#ffffff',
-					border: '1px solid #e5e7eb',
-					padding: '16px',
-					marginBottom: '1px',
-					borderRadius: '12px',
-					color: '#1f2937'
-				});
-			}
+			// if (is_dark) {
+			// 	//DARK MODE
+			// 	new_container.css({
+			// 		background: '#171717',
+			// 		border: '1px solid rgba(255,255,255,0.08)',
+			// 		padding: '16px',
+			// 		marginBottom: '1px',
+			// 		borderRadius: '12px',
+			// 		color: '#e6e6e6'
+			// 	});
+			// } else {
+			// 	//LIGHT MODE
+			// 	new_container.css({
+			// 		background: '#ffffff',
+			// 		border: '1px solid #e5e7eb',
+			// 		padding: '16px',
+			// 		marginBottom: '1px',
+			// 		borderRadius: '12px',
+			// 		color: '#1f2937'
+			// 	});
+			// }
+
+            if (is_dark) {
+                new_container.css({
+                    background: '#171717',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    padding: '6px 10px',
+                    marginBottom: '1px',
+                    borderRadius: '8px',
+                    color: '#e6e6e6'
+                });
+            } else {
+                new_container.css({
+                    background: '#ffffff',
+                    border: '1px solid #e5e7eb',
+                    padding: '6px 10px',
+                    marginBottom: '1px',
+                    borderRadius: '8px',
+                    color: '#1f2937'
+                });
+            }
 
 
             customer_cart.prepend(new_container);
+
+            new_container.css({
+                lineHeight: '1.2'
+            });
+
+            new_container.find('.form-group').css({
+                marginBottom: '2px'
+            });
+
+            new_container.find('.form-check').css({
+                marginBottom: '2px'
+            });
+
+            new_container.find('label').css({
+                marginBottom: '2px'
+            });
+
+            new_container.find('.form-control').css({
+                minHeight: '30px',
+                height: '30px',
+                paddingTop: '4px',
+                paddingBottom: '4px'
+            });
+
 
             new_container.append(`
                 
@@ -492,14 +1490,30 @@ function add_custom_pos_container(callback) {
                     </button>
                 </div>
 
-                <div id="b2b-fields" style="display:none; margin-top: 1px;">
-                    <div class="form-group">
-                        <label for="b2b-address">Alamat B2B</label>
-                        <input type="text" class="form-control" id="b2b-address" placeholder="Masukkan alamat...">
+                <div id="b2b-fields" style="display:none; margin-top:2px;">
+                    <div class="form-group" style="margin-bottom:2px;">
+                        <label for="b2b-address" style="margin-bottom:2px;">Alamat B2B</label>
+                        <input
+                            type="text"
+                            class="form-control"
+                            id="b2b-address"
+                            placeholder="Masukkan alamat..."
+                        >
                     </div>
-                    <div class="form-check" style="margin-top: 3px;">
-                        <input type="checkbox" class="form-check-input" id="invoice-checkbox">
-                        <label class="form-check-label" for="invoice-checkbox">Minta Faktur?</label>
+
+                    <div class="form-check" style="margin-top:2px; margin-bottom:2px;">
+                        <input
+                            type="checkbox"
+                            class="form-check-input"
+                            id="invoice-checkbox"
+                        >
+                        <label
+                            class="form-check-label"
+                            for="invoice-checkbox"
+                            style="margin-bottom:0;"
+                        >
+                            Minta Faktur?
+                        </label>
                     </div>
                 </div>
 
@@ -724,60 +1738,105 @@ function add_custom_pos_container(callback) {
     }
 }
 
-window.request_pos_authorization = async function (req_description) {
-    return await new Promise(resolve => {
-        frappe.prompt(
-            [{
-                fieldname: "code",
-                fieldtype: "Password",
-                label: __("Authorization Code"),
-                reqd: 1,
-            }],
-            values => {
-                frappe.call({
-                    method: "customer_display.api.verify_pos_code_auth",
-                    args: {
-                        // user: frappe.session.user,
-                        pos_profile: cur_frm.doc.pos_profile,
-                        code: values.code,
-                        description: req_description
-                    },
-                    callback: r => {
-                        if (r.message && r.message.valid === true) {
-							let child = cur_frm.add_child("custom_auth_provider");
-                            child.auth_provider = r.message.auth_provider;
-                            child.description = __(r.message.description); 
+// window.request_pos_authorization = async function (req_description) {
+//     return await new Promise(resolve => {
+//         frappe.prompt(
+//             [{
+//                 fieldname: "code",
+//                 fieldtype: "Password",
+//                 label: __("Authorization Code"),
+//                 reqd: 1,
+//             }],
+//             values => {
+//                 frappe.call({
+//                     method: "customer_display.api.verify_pos_code_auth",
+//                     args: {
+//                         // user: frappe.session.user,
+//                         pos_profile: cur_frm.doc.pos_profile,
+//                         code: values.code,
+//                         description: req_description
+//                     },
+//                     callback: r => {
+//                         if (r.message && r.message.valid === true) {
+// 							let child = cur_frm.add_child("custom_auth_provider");
+//                             child.auth_provider = r.message.auth_provider;
+//                             child.description = __(r.message.description); 
                             
-                            cur_frm.refresh_field("custom_auth_provider"); 
+//                             cur_frm.refresh_field("custom_auth_provider"); 
 
-                            console.log("Authenticator:", r.message.auth_provider); 
+//                             console.log("Authenticator:", r.message.auth_provider); 
                             
-                            resolve(true);
-                        } else {
-                            frappe.msgprint({
-                                title: __("Authorization Failed"),
-                                indicator: "red",
-                                message: __("Authorization code is invalid or not permitted.")
-                            });
-                            resolve(false);
-                        }
-                    }
-                });
-            },
-            __("Authorization Required"),
-            __("Submit")
-        );
-    });
-};
+//                             resolve(true);
+//                         } else {
+//                             frappe.msgprint({
+//                                 title: __("Authorization Failed"),
+//                                 indicator: "red",
+//                                 message: __("Authorization code is invalid or not permitted.")
+//                             });
+//                             resolve(false);
+//                         }
+//                     }
+//                 });
+//             },
+//             __("Authorization Required"),
+//             __("Submit")
+//         );
+//     });
+// };
+
+// (function () {
+
+//     let allow_remove_once = false;
+
+//     document.addEventListener(
+//         "click",
+//         async function (e) {
+
+//             const btn = e.target.closest(".remove-btn");
+//             if (!btn) return;
+
+//             if (allow_remove_once) {
+//                 allow_remove_once = false;
+//                 return;
+//             }
+
+//             e.preventDefault();
+//             e.stopImmediatePropagation();
+
+//             const ok = await window.request_pos_authorization("Auth remove item");
+//             if (!ok) {
+//                 frappe.show_alert({
+//                     message: __("Remove item cancelled"),
+//                     indicator: "red"
+//                 });
+//                 return;
+//             }
+
+//             frappe.show_alert("Authorized");
+
+//             allow_remove_once = true;
+
+//             btn.dispatchEvent(
+//                 new MouseEvent("click", {
+//                     bubbles: true,
+//                     cancelable: true,
+//                     view: window
+//                 })
+//             );
+
+//         },
+//         true 
+//     );
+
+// })();
 
 (function () {
-
     let allow_remove_once = false;
+    let remove_auth_in_progress = false;
 
     document.addEventListener(
         "click",
         async function (e) {
-
             const btn = e.target.closest(".remove-btn");
             if (!btn) return;
 
@@ -786,34 +1845,110 @@ window.request_pos_authorization = async function (req_description) {
                 return;
             }
 
-            e.preventDefault();
-            e.stopImmediatePropagation();
-
-            const ok = await window.request_pos_authorization("Auth remove item");
-            if (!ok) {
-                frappe.show_alert({
-                    message: __("Remove item cancelled"),
-                    indicator: "red"
-                });
+            if (remove_auth_in_progress) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
                 return;
             }
 
-            frappe.show_alert("Authorized");
+            e.preventDefault();
+            e.stopImmediatePropagation();
 
-            allow_remove_once = true;
+            remove_auth_in_progress = true;
 
-            btn.dispatchEvent(
-                new MouseEvent("click", {
-                    bubbles: true,
-                    cancelable: true,
-                    view: window
-                })
-            );
+            try {
+                const wrapper = btn.closest(".cart-item-wrapper");
 
+                let item_row = null;
+
+                // Cari item berdasarkan data DOM
+                if (wrapper && window.cur_frm?.doc?.items) {
+                    const possible_item_codes = [
+                        wrapper.dataset.itemCode,
+                        wrapper.getAttribute("data-item-code"),
+                        wrapper.querySelector("[data-item-code]")?.dataset.itemCode
+                    ].filter(Boolean);
+
+                    for (const item_code of possible_item_codes) {
+                        item_row = window.cur_frm.doc.items.find(
+                            row => row.item_code === item_code
+                        );
+
+                        if (item_row) break;
+                    }
+                }
+
+                // Fallback: coba dari current_item
+                if (!item_row && window.cur_pos?.current_item) {
+                    item_row = window.cur_pos.current_item;
+                }
+
+                // Fallback terakhir: ambil item berdasarkan index DOM
+                if (!item_row && wrapper && window.cur_frm?.doc?.items) {
+                    const wrappers = Array.from(
+                        document.querySelectorAll(".cart-item-wrapper")
+                    );
+
+                    const wrapper_index = wrappers.indexOf(wrapper);
+
+                    if (
+                        wrapper_index >= 0 &&
+                        window.cur_frm.doc.items[wrapper_index]
+                    ) {
+                        item_row =
+                            window.cur_frm.doc.items[wrapper_index];
+                    }
+                }
+
+                const item_code = item_row?.item_code || "";
+                const qty = item_row?.qty ?? "";
+
+                console.log("[POS AUTH REMOVE]", {
+                    item_row,
+                    item_code,
+                    qty
+                });
+
+                const ok =
+                    await window.cur_pos.authorize_current_invoice();
+
+                if (!ok) {
+                    frappe.show_alert({
+                        message: __("Remove item cancelled"),
+                        indicator: "red"
+                    });
+                    return;
+                }
+
+                window.cur_pos.record_pos_authorization_action(
+                    "Remove Item",
+                    item_row,
+                    item_code
+                        ? `Qty ${qty}`
+                        : ""
+                );
+
+                frappe.show_alert({
+                    message: __("Authorized"),
+                    indicator: "green"
+                });
+
+                allow_remove_once = true;
+
+                btn.dispatchEvent(
+                    new MouseEvent("click", {
+                        bubbles: true,
+                        cancelable: true,
+                        view: window
+                    })
+                );
+
+            } finally {
+                remove_auth_in_progress = false;
+            }
         },
-        true 
+        true
     );
-
 })();
 
 (function watch_pos_items() {
@@ -855,6 +1990,7 @@ window.request_pos_authorization = async function (req_description) {
 })();
 
 //ganti customer_name
+//ganti customer_name + compact customer section
 (function replace_pos_customer_name_text_only() {
 
     function apply() {
@@ -865,6 +2001,25 @@ window.request_pos_authorization = async function (req_description) {
         if (!el) return;
 
         el.textContent = cur_frm.doc.customer_name;
+
+        // Compact customer name
+        el.style.margin = "0";
+        el.style.padding = "0";
+        el.style.lineHeight = "1.2";
+        el.style.fontSize = "13px";
+        el.style.maxHeight = "18px";
+        el.style.overflow = "hidden";
+        el.style.textOverflow = "ellipsis";
+        el.style.whiteSpace = "nowrap";
+
+        // Compact parent customer section
+        const section = el.closest(".customer-section");
+
+        if (section) {
+            section.style.margin = "0";
+            section.style.padding = "4px 8px";
+            section.style.minHeight = "0";
+        }
     }
 
     setInterval(apply, 300);
@@ -971,55 +2126,166 @@ function parse_pos_amount(val) {
 }
 
 
-function apply_pos_discount_percent(percent) {
+// function apply_pos_discount_percent(percent) {
 
+//     const input = get_pos_discount_percent_input()[0];
+//     if (!input) {
+//         console.warn("❌ POS discount input not found");
+//         return;
+//     }
+
+//     input.value = percent;
+
+//     input.dispatchEvent(new Event('input', { bubbles: true }));
+//     input.dispatchEvent(new Event('change', { bubbles: true }));
+
+//     console.log("✅ POS Discount % applied:", percent);
+// }
+
+function apply_pos_discount_percent(percent, discount_amount) {
     const input = get_pos_discount_percent_input()[0];
-    if (!input) {
-        console.warn("❌ POS discount input not found");
+    const field = cur_frm?.fields_dict?.additional_discount_percentage;
+
+    if (!input || !field) {
+        console.warn("❌ POS discount field not found");
         return;
     }
 
-    input.value = percent;
+    const numeric_percent = Number(percent);
+    const numeric_amount = Number(discount_amount);
 
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true }));
+    if (!Number.isFinite(numeric_percent) || !Number.isFinite(numeric_amount)) {
+        console.warn("❌ Invalid discount:", {
+            percent,
+            discount_amount
+        });
+        return;
+    }
 
-    console.log("✅ POS Discount % applied:", percent);
+    // Simpan FULL PRECISION ke document
+    cur_frm.doc.additional_discount_percentage = numeric_percent;
+    cur_frm.doc.discount_amount = numeric_amount;
+
+    // Tampilan tetap 2 angka desimal
+    input.value = numeric_percent.toFixed(2);
+
+    // Trigger recalculation POS
+    if (cur_pos && typeof cur_pos.calculate_totals === "function") {
+        cur_pos.calculate_totals();
+    } else if (cur_frm && typeof cur_frm.cscript?.calculate_taxes_and_totals === "function") {
+        cur_frm.cscript.calculate_taxes_and_totals();
+    }
+
+    cur_frm.refresh_field("discount_amount");
+    cur_frm.refresh_field("additional_discount_percentage");
+
+    console.log("✅ POS Discount Applied:", {
+        percentage_display: input.value,
+        percentage_internal: numeric_percent,
+        discount_amount: numeric_amount,
+        doc_percentage: cur_frm.doc.additional_discount_percentage,
+        doc_amount: cur_frm.doc.discount_amount
+    });
 }
+
+// function bind_discount_amount_total_handler() {
+//     $(document)
+//         .off('change.discount_rp_total')
+//         .on('change.discount_rp_total', '.discount-amount-rp input', function () {
+
+//             const discount_amount = parse_discount_input(this.value);
+//             if (!discount_amount) return;
+
+//             const gross_total = get_pos_items_gross_total();
+//             if (!gross_total) return;
+
+//             const percent = flt(
+//                 ((discount_amount / gross_total) * 100).toFixed(2)
+//             );
+
+//                console.log(
+//                     `💸 Rp → % ${discount_amount} / ${gross_total} = ${percent.toFixed(2)}% (POS=${(percent/100).toFixed(4)})`
+//                 );
+
+//             apply_pos_discount_percent(percent / 100);
+//         });
+// }
 
 function bind_discount_amount_total_handler() {
     $(document)
         .off('change.discount_rp_total')
         .on('change.discount_rp_total', '.discount-amount-rp input', function () {
-
             const discount_amount = parse_discount_input(this.value);
+
             if (!discount_amount) return;
 
             const gross_total = get_pos_items_gross_total();
+
             if (!gross_total) return;
 
-            const percent = flt(
-                ((discount_amount / gross_total) * 100).toFixed(2)
+            // JANGAN dibulatkan.
+            // Nilai ini dipakai ERPNext untuk menghitung discount_amount.
+            const exact_percent = (discount_amount / gross_total) * 100;
+
+            console.log(
+                `💸 Rp → % ${discount_amount} / ${gross_total} =`,
+                exact_percent
             );
 
-               console.log(
-                    `💸 Rp → % ${discount_amount} / ${gross_total} = ${percent.toFixed(2)}% (POS=${(percent/100).toFixed(4)})`
-                );
-
-            apply_pos_discount_percent(percent / 100);
+            apply_pos_discount_percent(
+                exact_percent,
+                discount_amount
+            );
         });
 }
 
+
+// function inject_pos_hide_net_and_tax_css() {
+//     if (document.getElementById("pos-hide-net-tax-css")) return;
+
+//     const style = document.createElement("style");
+//     style.id = "pos-hide-net-tax-css";
+//     style.innerHTML = `
+//         .cart-totals-section .net-total-container,
+//         .cart-totals-section .taxes-container {
+//             display: none !important;
+//         }
+//     `;
+
+//     document.head.appendChild(style);
+// }
 
 function inject_pos_hide_net_and_tax_css() {
     if (document.getElementById("pos-hide-net-tax-css")) return;
 
     const style = document.createElement("style");
     style.id = "pos-hide-net-tax-css";
+
     style.innerHTML = `
         .cart-totals-section .net-total-container,
         .cart-totals-section .taxes-container {
             display: none !important;
+        }
+
+        /* Compact cart item - tanpa merusak layout/scroll */
+        .cart-item-wrapper {
+            padding: 2px 4px !important;
+        }
+
+        .cart-item-wrapper .item-image {
+            width: 28px !important;
+            height: 28px !important;
+        }
+
+        .cart-item-wrapper .item-name {
+            font-size: 12px !important;
+            line-height: 18px !important;
+        }
+
+        .cart-item-wrapper .item-qty,
+        .cart-item-wrapper .item-rate {
+            font-size: 12px !important;
+            line-height: 18px !important;
         }
     `;
 
@@ -1768,12 +3034,62 @@ frappe.ui.form.on("POS Invoice", {
             load_customer_point(frm.doc.customer);
         }, 500);
 
+        const current_is_new = !!frm.is_new();
+        const previous_is_new = window.cur_pos.pos_auth_last_is_new;
+
+        console.log(
+            "[POS AUTH STATE]",
+            "previous_is_new =", previous_is_new,
+            "current_is_new =", current_is_new,
+            "authorized =", window.cur_pos.pos_authorization?.authorized
+        );
+
+        window.cur_pos.pos_auth_last_is_new = current_is_new;
+
+        if (
+            previous_is_new === false &&
+            current_is_new === true
+        ) {
+            window.cur_pos.pos_authorization = {
+                authorized: false,
+                auth_provider: null,
+                auth_in_progress: null
+            };
+
+            console.log("[POS AUTH] New Order detected - authorization reset");
+        }
+
+        // =====================================================
+        // NEW ORDER TERDETEKSI
+        // Hanya reset ketika:
+        // saved/submitted invoice → New Order
+        // =====================================================
+
+        if (
+            previous_is_new === false &&
+            current_is_new === true
+        ) {
+            window.cur_pos.pos_authorization = {
+                authorized: false,
+                auth_provider: null,
+                auth_in_progress: null
+            };
+
+            console.log(
+                "[POS AUTH] New Order detected - authorization reset"
+            );
+        }
+
+        // =====================================================
+        // REFRESH ITEM SELECTOR
+        // =====================================================
+
         if (!pos_item_selector_initialized) {
             pos_item_selector_initialized = true;
             return;
         }
 
-        if (frm.is_new()) {
+        if (current_is_new) {
             setTimeout(() => {
                 refresh_pos_item_selector();
             }, 300);

@@ -296,6 +296,17 @@ override_doctype_class = {
 
 # before_tests = "customer_display.install.before_tests"
 
+override_whitelisted_methods = {
+    "erpnext.accounts.doctype.pos_closing_entry.pos_closing_entry.get_pos_invoices":
+        "customer_display.custom_standard.pos_closing_custom.get_pos_invoices",
+
+    "erpnext.stock.get_item_details.get_item_details":
+        "customer_display.custom_standard.get_item_details_override.get_item_details",
+
+    "erpnext.stock.get_item_details.apply_price_list":
+        "customer_display.custom_standard.get_item_details_override.apply_price_list"
+}
+
 # Overriding Methods
 # ------------------------------
 #

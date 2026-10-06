@@ -345,7 +345,7 @@ def get_conditions(filters):
 	conditions = []
 	
 	if filters.get("date"):
-		conditions.append("posting_date = %(date)s")
+		conditions.append("period_start_date = %(date)s")
 	
 	return " AND " + " AND ".join(conditions) if conditions else ""
 

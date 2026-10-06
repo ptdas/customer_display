@@ -4,6 +4,7 @@ import json
 from frappe.utils import flt
 from frappe.utils.data import today
 from frappe.model.mapper import get_mapped_doc
+from frappe.utils import getdate
 
 def check_po_qty(doc,method):
 	if doc.workflow_state != "Draft":
@@ -45,7 +46,11 @@ def create_lcv_on_submit(doc, method=None):
 				f'total LCV ({doc.custom_lcv_total_taxes_and_charges})'
 			)
 
-	items_with_charges = [i for i in doc.custom_lcv_item if i.applicable_charges > 0]
+	# items_with_charges = [i for i in doc.custom_lcv_item if i.applicable_charges > 0]
+	items_with_charges = [
+		i for i in doc.custom_lcv_item
+		if flt(i.applicable_charges) > 0
+	]
 	if not items_with_charges:
 		return
 
@@ -333,23 +338,90 @@ def create_forwarder_pinv(source_name):
 
 
 def update_item_last_vendor(doc, method=None):
+
 	supplier = doc.supplier
-	
+
 	if doc.custom_stock_movement_inter:
 		return
-	
+
 	if not supplier:
 		return
 
 	for row in doc.items:
+
 		if not row.item_code:
 			continue
+
+		item = frappe.db.get_value(
+			"Item",
+			row.item_code,
+			[
+				"custom_last_pinv_date",
+				"custom_last_pinv"
+			],
+			as_dict=True
+		)
+
+		last_pinv_date = item.custom_last_pinv_date if item else None
+		last_pinv = item.custom_last_pinv if item else None
+
+		# Cek apakah PINV sekarang lebih baru
+		is_newer = False
+
+		if not last_pinv_date:
+			is_newer = True
+
+		elif getdate(doc.posting_date) > getdate(last_pinv_date):
+			is_newer = True
+
+		elif (
+			getdate(doc.posting_date) == getdate(last_pinv_date)
+			and doc.name > (last_pinv or "")
+		):
+			is_newer = True
+
+		if not is_newer:
+			continue
+
+		# COGS
+		cogs = row.price_list_rate or 0
+
+		# LCV
+		lcv_res = frappe.db.sql("""
+			SELECT
+				SUM(applicable_charges / NULLIF(qty, 0))
+			FROM `tabPINV LCV Item`
+			WHERE parent = %s
+				AND item_code = %s
+		""", (doc.name, row.item_code))
+
+		lcv = lcv_res[0][0] if lcv_res and lcv_res[0][0] else 0
+
+		# PPN
+		ppn_res = frappe.db.sql("""
+			SELECT
+				SUM(ROUND((t.rate / 100) * pii.base_rate, 2))
+			FROM `tabPurchase Taxes and Charges` t
+			JOIN `tabPurchase Invoice Item` pii
+				ON pii.parent = t.parent
+			WHERE t.parent = %s
+				AND pii.item_code = %s
+		""", (doc.name, row.item_code))
+
+		ppn = ppn_res[0][0] if ppn_res and ppn_res[0][0] else 0
 
 		frappe.db.set_value(
 			"Item",
 			row.item_code,
-			"custom_vendor",
-			supplier
+			{
+				"custom_vendor": supplier,
+				"custom_cogs": cogs,
+				"custom_lcv": lcv,
+				"custom_ppn": ppn,
+				"custom_last_pinv_date": getdate(doc.posting_date),
+				"custom_last_pinv": doc.name
+			},
+			update_modified=False
 		)
 
 def update_items_prices(doc, method):
@@ -445,6 +517,7 @@ def create_forwarder_pinv_multi(source_names):
 
 	forwarder = None
 	company = None
+	company_abbr = None
 
 	target.items = []
 	target.taxes = []
@@ -460,16 +533,49 @@ def create_forwarder_pinv_multi(source_names):
 		if not src.custom_forwarder:
 			frappe.throw(f"{src.name}: Forwarder wajib diisi")
 
-		if forwarder is None:
-			forwarder = src.custom_forwarder
-			company = src.company
-		elif forwarder != src.custom_forwarder:
+		vendor_company = frappe.get_value(
+			"Supplier",
+			src.custom_forwarder,
+			"custom_vendor_company"
+		)
+
+		if not vendor_company:
 			frappe.throw(
-				"Tidak bisa menggabungkan Purchase Invoice "
-				"dengan Forwarder yang berbeda"
+				f"{src.name}: Supplier {src.custom_forwarder} "
+				"belum memiliki Custom Vendor Company"
 			)
 
+		vendor_company_abbr = frappe.get_value(
+			"Company",
+			vendor_company,
+			"abbr"
+		)
+
+		if not vendor_company_abbr:
+			frappe.throw(
+				f"{src.name}: Company {vendor_company} "
+				"belum memiliki Abbr"
+			)
+
+		if forwarder is None:
+			forwarder = src.custom_forwarder
+			company = vendor_company
+			company_abbr = vendor_company_abbr
+		else:
+			if forwarder != src.custom_forwarder:
+				frappe.throw(
+					"Tidak bisa menggabungkan Purchase Invoice "
+					"dengan Forwarder yang berbeda"
+				)
+
+			if company != vendor_company:
+				frappe.throw(
+					"Tidak bisa menggabungkan Purchase Invoice "
+					"dengan Vendor Company yang berbeda"
+				)
+
 		lcv_amount = flt(src.custom_lcv_total_taxes_and_charges or 0)
+
 		if lcv_amount <= 0:
 			continue
 
@@ -481,7 +587,19 @@ def create_forwarder_pinv_multi(source_names):
 		row.stock_uom = "Nos"
 		row.rate = lcv_amount
 		row.amount = lcv_amount
-		row.cost_center = src.items[0].cost_center if src.items else None
+
+		source_cost_center = src.items[0].cost_center if src.items else None
+
+		if source_cost_center and company_abbr:
+			parts = [part.strip() for part in source_cost_center.split(" - ")]
+
+			if len(parts) >= 2:
+				parts[-1] = company_abbr
+				row.cost_center = " - ".join(parts)
+			else:
+				row.cost_center = source_cost_center
+		else:
+			row.cost_center = source_cost_center
 
 		row.custom_pinv_forwader_reference = src.name
 		row.is_free_item = 1
@@ -505,8 +623,6 @@ def create_forwarder_pinv_multi(source_names):
 		"Forwarder dari Purchase Invoice:\n" +
 		", ".join(source_names)
 	)
-
-	# target.custom_reference_pinv = ", ".join(source_names)
 
 	return target
 

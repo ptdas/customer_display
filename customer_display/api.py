@@ -228,3 +228,21 @@ def get_customer_point(customer_id):
         "customer_name": customer.customer_name,
         "jmlpoint": customer.custom_jmlpoint or 0
     }
+
+
+@frappe.whitelist()
+def get_purchase_invoice_payment_amount(invoice_name):
+    if not invoice_name:
+        return 0
+
+    amount = frappe.db.sql("""
+        SELECT SUM(per.allocated_amount)
+        FROM `tabPayment Entry Reference` per
+        INNER JOIN `tabPayment Entry` pe
+            ON pe.name = per.parent
+        WHERE per.reference_doctype = 'Purchase Invoice'
+          AND per.reference_name = %s
+          AND pe.docstatus = 1
+    """, (invoice_name,))[0][0]
+
+    return amount or 0

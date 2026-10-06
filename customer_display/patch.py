@@ -161,3 +161,19 @@ def patch_barcode_item():
     print(f"Barcode diproses : {len(rows)}")
     print(f"Item terdampak   : {len(processed_items)}")
     print("========================")
+
+
+
+def update_item_price_from_item():
+    frappe.db.sql("""
+        UPDATE `tabItem Price` ip
+        INNER JOIN `tabItem` i
+            ON i.name = ip.item_code
+        SET
+            ip.item_name = i.item_name,
+            ip.item_description = i.description
+    """)
+
+    frappe.db.commit()
+
+    print("Item Price item_name dan item_description berhasil di-update")

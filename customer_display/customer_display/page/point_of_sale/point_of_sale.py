@@ -103,7 +103,7 @@ def get_items(start, page_length, price_list, item_group, pos_profile, search_te
 	if search_term:
 		search_term = search_term.strip()
 
-		if len(search_term) >= 8:
+		if len(search_term) >= 10:
 			result = search_by_term(search_term, warehouse, price_list) or []
 			if result:
 				return result

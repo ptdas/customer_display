@@ -3,84 +3,103 @@ erpnext.PointOfSale.Controller = class {
    * Called once per line at checkout: shows your “Authorization Code” prompt
    * if stock ≤ 0, or flags override if partial stock.
    */
-  async check_stock_availability_for_checkout(item_row, qty_needed, warehouse) {
-	// 1) Get real stock + flag
-	const resp = (await this.get_available_stock(item_row.item_code, warehouse)).message;
-	const available_qty = resp[0];
-	const is_stock_item  = resp[1];
+//   async check_stock_availability_for_checkout(item_row, qty_needed, warehouse) {
+// 	// 1) Get real stock + flag
+// 	const resp = (await this.get_available_stock(item_row.item_code, warehouse)).message;
+// 	const available_qty = resp[0];
+// 	const is_stock_item  = resp[1];
 
-	// Release any freeze so prompt is clickable
-	frappe.dom.unfreeze();
+// 	// Release any freeze so prompt is clickable
+// 	frappe.dom.unfreeze();
 
-	// Helpers for bold text
-	const bold = txt => `<strong>${txt}</strong>`;
-	const bold_item_code = bold(item_row.item_code);
-	const warehouse_name  = warehouse.split(" - ")[0];
-	const bold_warehouse  = bold(warehouse_name);
+// 	// Helpers for bold text
+// 	const bold = txt => `<strong>${txt}</strong>`;
+// 	const bold_item_code = bold(item_row.item_code);
+// 	const warehouse_name  = warehouse.split(" - ")[0];
+// 	const bold_warehouse  = bold(warehouse_name);
 
-	// 2) If zero or negative stock on a stock item → prompt override
-	if (!(available_qty > 0) && is_stock_item) {
-	  const frm = this.frm || cur_frm;
-	  if (frm) frm.set_value("custom_allow_zero_stock", 1);
+// 	// 2) If zero or negative stock on a stock item → prompt override
+// 	if (!(available_qty > 0) && is_stock_item) {
+// 	  const frm = this.frm || cur_frm;
+// 	  if (frm) frm.set_value("custom_allow_zero_stock", 1);
 
-	  // Await your single‐field password prompt
-	  await new Promise(resolve => {
-		frappe.prompt(
-		  [{
-			fieldname: "code",
-			fieldtype: "Password",
-			label: __("Authorization Code"),
-			reqd: 1
-		  }],
-		  values => {
-			frappe.call({
-			  method: "customer_display.api.verify_pos_code_auth",
-			  args: {
-				// user: frappe.session.user,
-				pos_profile: cur_frm.doc.pos_profile,
-				code: values.code,
-				description: "Auth Stock Availability"
-			  },
-			  callback: r => {
-				if (r.message && r.message.valid === true) {
-					let child = cur_frm.add_child("custom_auth_provider");
-					child.auth_provider = r.message.auth_provider;
-					child.description = __(r.message.description); 
+// 	  // Await your single‐field password prompt
+// 	  await new Promise(resolve => {
+// 		frappe.prompt(
+// 		  [{
+// 			fieldname: "code",
+// 			fieldtype: "Password",
+// 			label: __("Authorization Code"),
+// 			reqd: 1
+// 		  }],
+// 		  values => {
+// 			frappe.call({
+// 			  method: "customer_display.api.verify_pos_code_auth",
+// 			  args: {
+// 				// user: frappe.session.user,
+// 				pos_profile: cur_frm.doc.pos_profile,
+// 				code: values.code,
+// 				description: "Auth Stock Availability"
+// 			  },
+// 			  callback: r => {
+// 				if (r.message && r.message.valid === true) {
+// 					let child = cur_frm.add_child("custom_auth_provider");
+// 					child.auth_provider = r.message.auth_provider;
+// 					child.description = __(r.message.description); 
 					
-					cur_frm.refresh_field("custom_auth_provider"); 
+// 					cur_frm.refresh_field("custom_auth_provider"); 
 
-					console.log("Authenticator:", r.message.auth_provider); 
-				  // OK: flag override and continue
-				  if (frm) frm.set_value("custom_allow_zero_stock", 1);
-				  resolve();
-				} else {
-				  // Reject: block checkout with your error
-				  frappe.throw({
-					title: __("Not Available"),
-					message: __(
-					  "Item {0} is not available in warehouse {1}.",
-					  [ bold_item_code, bold_warehouse ]
-					)
-				  });
-				}
-			  }
-			});
-		  },
-		  __("Authorization Required - Item Stock Insufficient"),
-		  __("Submit")
-		);
-	  });
+// 					console.log("Authenticator:", r.message.auth_provider); 
+// 				  // OK: flag override and continue
+// 				  if (frm) frm.set_value("custom_allow_zero_stock", 1);
+// 				  resolve();
+// 				} else {
+// 				  // Reject: block checkout with your error
+// 				  frappe.throw({
+// 					title: __("Not Available"),
+// 					message: __(
+// 					  "Item {0} is not available in warehouse {1}.",
+// 					  [ bold_item_code, bold_warehouse ]
+// 					)
+// 				  });
+// 				}
+// 			  }
+// 			});
+// 		  },
+// 		  __("Authorization Required - Item Stock Insufficient"),
+// 		  __("Submit")
+// 		);
+// 	  });
+// 	}
+
+// 	// 3) If partial stock (< qty_needed), just flag override
+// 	else if (is_stock_item && available_qty < qty_needed) {
+// 	  const frm = this.frm || cur_frm;
+// 	  if (frm) frm.set_value("custom_allow_zero_stock", 1);
+// 	}
+
+// 	// Re‐freeze UI before proceeding
+// 	frappe.dom.freeze();
+//   }
+
+	async check_stock_availability_for_checkout(item_row, qty_needed, warehouse) {
+		// 1) Get real stock + flag
+		const resp = (await this.get_available_stock(item_row.item_code, warehouse)).message;
+		const available_qty = flt(resp[0]);
+		const is_stock_item = resp[1];
+
+		// Release any freeze so UI remains usable
+		frappe.dom.unfreeze();
+
+		// 2) Stock shortage = available stock is less than required qty
+		const stock_shortage = is_stock_item && available_qty < qty_needed;
+
+		// Re-freeze UI before proceeding
+		frappe.dom.freeze();
+
+		// Return result to save_and_checkout()
+		return stock_shortage;
 	}
-
-	// 3) If partial stock (< qty_needed), just flag override
-	else if (is_stock_item && available_qty < qty_needed) {
-	  const frm = this.frm || cur_frm;
-	  if (frm) frm.set_value("custom_allow_zero_stock", 1);
-	}
-
-	// Re‐freeze UI before proceeding
-	frappe.dom.freeze();
-  }
 
 	constructor(wrapper) {
 		this.wrapper = $(wrapper).find(".layout-main-section");
@@ -1072,13 +1091,45 @@ erpnext.PointOfSale.Controller = class {
 	// }
 
 	
+	// get_item_from_frm({ name, item_code, batch_no, uom, rate }) {
+	// 	let item_row = null;
+
+	// 	if (name) {
+	// 		item_row = this.frm.doc.items.find((i) => i.name == name);
+	// 	} else {
+	// 		const has_batch_no = batch_no !== "null" && batch_no !== null;
+
+	// 		item_row = this.frm.doc.items.find((i) => {
+	// 			// item + batch + uom harus sama
+	// 			if (
+	// 				i.item_code !== item_code ||
+	// 				(has_batch_no && i.batch_no !== batch_no) ||
+	// 				i.uom !== uom
+	// 			) {
+	// 				return false;
+	// 			}
+
+	// 			// Jika row punya pricing rule, boleh merge 
+	// 			if (i.has_pricing_rule) {
+	// 				return true;
+	// 			}
+
+	// 			// Jika tidak ada pricing rule, tetap cocokkan rate
+	// 			return i.rate === flt(rate);
+	// 		});
+	// 	}
+
+	// 	return item_row || {};
+	// }
+
 	get_item_from_frm({ name, item_code, batch_no, uom, rate }) {
 		let item_row = null;
 
 		if (name) {
 			item_row = this.frm.doc.items.find((i) => i.name == name);
 		} else {
-			const has_batch_no = batch_no !== "null" && batch_no !== null;
+			// null, undefined, dan "null" dianggap tidak punya batch
+			const has_batch_no = batch_no != null && batch_no !== "null";
 
 			item_row = this.frm.doc.items.find((i) => {
 				// item + batch + uom harus sama
@@ -1090,13 +1141,13 @@ erpnext.PointOfSale.Controller = class {
 					return false;
 				}
 
-				// Jika row punya pricing rule, boleh merge 
+				// Jika row punya pricing rule, boleh merge
 				if (i.has_pricing_rule) {
 					return true;
 				}
 
-				// Jika tidak ada pricing rule, tetap cocokkan rate
-				return i.rate === flt(rate);
+				// Normalisasi rate supaya string/number tidak menjadi masalah
+				return flt(i.rate) === flt(rate);
 			});
 		}
 
@@ -1331,43 +1382,264 @@ erpnext.PointOfSale.Controller = class {
 	// 	}
 	// }
 
-	async save_and_checkout() {
+	// async save_and_checkout() {
 		
-		// ─────────────────────────────────────────────────
-		// 1) For each line, enforce stock/auth override
-		// ─────────────────────────────────────────────────
+	// 	// ─────────────────────────────────────────────────
+	// 	// 1) For each line, enforce stock/auth override
+	// 	// ─────────────────────────────────────────────────
+	// 	try {
+	// 	  for (let row of this.frm.doc.items) {
+	// 		await this.check_stock_availability_for_checkout(
+	// 		  row,
+	// 		  row.qty,
+	// 		  this.frm.doc.set_warehouse
+	// 		);
+	// 	  }
+	// 	} catch (e) {
+	// 	  // Any frappe.throw in the prompt will come here.
+	// 	  // Abort checkout; user sees the error.
+	// 	  return;
+	// 	}
+
+	// 	frappe.dom.unfreeze();
+
+	// 	// ─────────────────────────────────────────────────
+	// 	// 2) Original save & proceed to payment
+	// 	// ─────────────────────────────────────────────────
+	// 	if (this.frm.is_dirty()) {
+	// 	  let save_error = false;
+	// 	  await this.frm.save(null, null, null, () => (save_error = true));
+	// 	  if (!save_error) {
+	// 		this.payment.checkout();
+	// 	  } else {
+	// 		// Show the checkout button again on save‐error
+	// 		setTimeout(() => {
+	// 		  this.cart.toggle_checkout_btn(true);
+	// 		}, 300);
+	// 	  }
+	// 	} else {
+	// 	  this.payment.checkout();
+	// 	}
+	// }
+
+	// async save_and_checkout() {
+	// 	// 1) Check stock for all items first
+	// 	let stock_shortage = false;
+
+	// 	try {
+	// 		for (let row of this.frm.doc.items) {
+	// 			const qty_needed = flt(row.qty) * flt(row.conversion_factor || 1);
+
+	// 			const shortage = await this.check_stock_availability_for_checkout(
+	// 				row,
+	// 				qty_needed,
+	// 				this.frm.doc.set_warehouse
+	// 			);
+
+	// 			if (shortage) {
+	// 				stock_shortage = true;
+	// 			}
+	// 		}
+	// 	} catch (e) {
+	// 		return;
+	// 	}
+
+	// 	// 2) If any item has insufficient stock, request AUTH only once
+	// 	if (stock_shortage) {
+	// 		frappe.dom.unfreeze();
+
+	// 		const authorized = await new Promise(resolve => {
+	// 			frappe.prompt(
+	// 				[
+	// 					{
+	// 						fieldname: "code",
+	// 						fieldtype: "Password",
+	// 						label: __("Authorization Code"),
+	// 						reqd: 1
+	// 					}
+	// 				],
+	// 				values => {
+	// 					frappe.call({
+	// 						method: "customer_display.api.verify_pos_code_auth",
+	// 						args: {
+	// 							pos_profile: cur_frm.doc.pos_profile,
+	// 							code: values.code,
+	// 							description: "Auth Stock Availability"
+	// 						},
+	// 						callback: r => {
+	// 							if (r.message && r.message.valid === true) {
+	// 								let child = cur_frm.add_child("custom_auth_provider");
+
+	// 								child.auth_provider = r.message.auth_provider;
+	// 								child.description = __(r.message.description);
+
+	// 								cur_frm.refresh_field("custom_auth_provider");
+
+	// 								const frm = this.frm || cur_frm;
+
+	// 								if (frm) {
+	// 									frm.set_value("custom_allow_zero_stock", 1);
+	// 								}
+
+	// 								console.log(
+	// 									"Authenticator:",
+	// 									r.message.auth_provider
+	// 								);
+
+	// 								resolve(true);
+	// 							} else {
+	// 								frappe.msgprint({
+	// 									title: __("Authorization Failed"),
+	// 									message: __("Invalid Authorization Code."),
+	// 									indicator: "red"
+	// 								});
+
+	// 								resolve(false);
+	// 							}
+	// 						}
+	// 					});
+	// 				},
+	// 				__("Authorization Required - Item Stock Insufficient"),
+	// 				__("Submit")
+	// 			);
+	// 		});
+
+	// 		if (!authorized) {
+	// 			frappe.dom.unfreeze();
+	// 			return;
+	// 		}
+	// 	}
+
+	// 	frappe.dom.unfreeze();
+
+	// 	// 3) Original save & proceed to payment
+	// 	if (this.frm.is_dirty()) {
+	// 		let save_error = false;
+
+	// 		await this.frm.save(
+	// 			null,
+	// 			null,
+	// 			null,
+	// 			() => (save_error = true)
+	// 		);
+
+	// 		if (!save_error) {
+	// 			this.payment.checkout();
+	// 		} else {
+	// 			setTimeout(() => {
+	// 				this.cart.toggle_checkout_btn(true);
+	// 			}, 300);
+	// 		}
+	// 	} else {
+	// 		this.payment.checkout();
+	// 	}
+	// }
+
+	async save_and_checkout() {
+		// 1) Check stock for all items first
+		const shortage_items = [];
+
 		try {
-		  for (let row of this.frm.doc.items) {
-			await this.check_stock_availability_for_checkout(
-			  row,
-			  row.qty,
-			  this.frm.doc.set_warehouse
-			);
-		  }
+			for (let row of this.frm.doc.items) {
+				const qty_needed =
+					flt(row.qty) * flt(row.conversion_factor || 1);
+
+				const shortage =
+					await this.check_stock_availability_for_checkout(
+						row,
+						qty_needed,
+						this.frm.doc.set_warehouse
+					);
+
+				if (shortage) {
+					const resp = (
+						await this.get_available_stock(
+							row.item_code,
+							this.frm.doc.set_warehouse
+						)
+					).message;
+
+					const available_qty = flt(resp[0]);
+
+					shortage_items.push({
+						row,
+						available_qty,
+						qty_needed
+					});
+				}
+			}
 		} catch (e) {
-		  // Any frappe.throw in the prompt will come here.
-		  // Abort checkout; user sees the error.
-		  return;
+			console.error("[POS STOCK AUTH] Stock check error:", e);
+			frappe.dom.unfreeze();
+			return;
+		}
+
+		// 2) Kalau ada stock shortage → gunakan AUTH session POS yang sama
+		if (shortage_items.length) {
+
+			frappe.dom.unfreeze();
+
+			const authorized =
+				await this.authorize_current_invoice(
+					"Authorization Required - Item Stock Insufficient"
+				);
+
+			if (!authorized) {
+				frappe.dom.unfreeze();
+				return;
+			}
+
+			// 3) Catat setiap item yang mengalami stock shortage
+			for (const shortage of shortage_items) {
+
+				const {
+					row,
+					available_qty,
+					qty_needed
+				} = shortage;
+
+				this.record_pos_authorization_action(
+					"Stock Shortage",
+					row,
+					`Available ${available_qty}, Required ${qty_needed}`
+				);
+			}
+
+			// Tetap set flag seperti behavior sebelumnya
+			const frm = this.frm || cur_frm;
+
+			if (frm) {
+				frm.set_value(
+					"custom_allow_zero_stock",
+					1
+				);
+			}
 		}
 
 		frappe.dom.unfreeze();
 
-		// ─────────────────────────────────────────────────
-		// 2) Original save & proceed to payment
-		// ─────────────────────────────────────────────────
+		// 4) Original save & proceed to payment
 		if (this.frm.is_dirty()) {
-		  let save_error = false;
-		  await this.frm.save(null, null, null, () => (save_error = true));
-		  if (!save_error) {
-			this.payment.checkout();
-		  } else {
-			// Show the checkout button again on save‐error
-			setTimeout(() => {
-			  this.cart.toggle_checkout_btn(true);
-			}, 300);
-		  }
+
+			let save_error = false;
+
+			await this.frm.save(
+				null,
+				null,
+				null,
+				() => (save_error = true)
+			);
+
+			if (!save_error) {
+				this.payment.checkout();
+			} else {
+				setTimeout(() => {
+					this.cart.toggle_checkout_btn(true);
+				}, 300);
+			}
+
 		} else {
-		  this.payment.checkout();
+			this.payment.checkout();
 		}
 	}
 

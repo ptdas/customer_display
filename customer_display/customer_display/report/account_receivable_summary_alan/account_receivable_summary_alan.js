@@ -151,9 +151,9 @@ frappe.query_reports["Account Receivable Summary ALAN"] = {
 	],
 
 	onload: function (report) {
-		report.page.add_inner_button(__("Accounts Receivable"), function () {
+		report.page.add_inner_button(__("Account Receivable Alan"), function () {
 			var filters = report.get_values();
-			frappe.set_route("query-report", "Accounts Receivable", { company: filters.company });
+			frappe.set_route("query-report", "Account Receivable Alan", { company: filters.company });
 		});
 	},
 };

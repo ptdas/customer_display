@@ -124,14 +124,14 @@ frappe.query_reports["Account Payable Summary ALAN"] = {
 	],
 
 	onload: function (report) {
-		report.page.add_inner_button(__("Accounts Payable"), function () {
+		report.page.add_inner_button(__("Account Payable Alan"), function () {
 			var filters = report.get_values();
-			frappe.set_route("query-report", "Accounts Payable", { company: filters.company });
+			frappe.set_route("query-report", "Account Payable Alan", { company: filters.company });
 		});
 	},
 };
 
-erpnext.utils.add_dimensions("Accounts Payable Summary", 9);
+erpnext.utils.add_dimensions("Account Payable Summary", 9);
 
 function get_party_type_options() {
 	let options = [];
